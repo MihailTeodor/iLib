@@ -30,11 +30,4 @@ public class ModelFactory {
 		return new Loan(UUID.randomUUID().toString());
 	}
 	
-	public static Notification notification() {
-		return new Notification(UUID.randomUUID().toString());
-	}
-	
-	public static Subscription subscription() {
-		return new Subscription(UUID.randomUUID().toString());
-	}
 }

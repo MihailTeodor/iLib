@@ -12,14 +12,12 @@ public class User extends BaseEntity {
 	private String address;
 	private String telephoneNumber;
     private UserRole role;	
-	private List<Notification> notifications;
 	
 	
 	User(){}
 	
 	public User(String uuid) {
 		super(uuid);
-		this.notifications = new ArrayList<Notification>();
 	}
 	
 	public String getName() {
@@ -70,14 +68,6 @@ public class User extends BaseEntity {
 		this.telephoneNumber = telephoneNumber;
 	}
 	
-	public List<Notification> getNotifications() {
-		return notifications;
-	}
-	
-	public void setNotifications(List<Notification> notifications) {
-		this.notifications = notifications;
-	}
-
 	public UserRole getRole() {
 		return role;
 	}

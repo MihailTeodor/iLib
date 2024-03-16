@@ -1,5 +1,10 @@
 package it.gurzu.swam.iLib.model;
 
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
+
+@Entity
+@Table(name = "movies_DVD")
 public class MovieDVD extends Article {
 
 	private String director;

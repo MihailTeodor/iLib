@@ -2,10 +2,20 @@ package it.gurzu.swam.iLib.model;
 
 import java.sql.Date;
 
+import jakarta.persistence.Entity;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+
+@Entity
+@Table(name = "bookings")
 public class Booking extends BaseEntity {
 
+	@ManyToOne
 	private Article bookedArticle;
+	
+	@ManyToOne 
 	private User bookingUser;
+	
 	private Date bookingEndDate; 
 
 	Booking() { }

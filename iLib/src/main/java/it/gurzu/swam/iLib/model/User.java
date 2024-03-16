@@ -1,8 +1,12 @@
 package it.gurzu.swam.iLib.model;
 
-import java.util.ArrayList;
-import java.util.List;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Table;
 
+@Entity
+@Table(name = "users")
 public class User extends BaseEntity {
 
 	private String name;
@@ -11,6 +15,8 @@ public class User extends BaseEntity {
 	private String password;
 	private String address;
 	private String telephoneNumber;
+	
+	@Enumerated(EnumType.STRING)
     private UserRole role;	
 	
 	

@@ -2,10 +2,20 @@ package it.gurzu.swam.iLib.model;
 
 import java.sql.Date;
 
+import jakarta.persistence.Entity;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+
+@Entity
+@Table(name = "loans")
 public class Loan extends BaseEntity {
 
+	@ManyToOne
 	private Article articleOnLoan;
+	
+	@ManyToOne
 	private User loaningUser;
+	
 	private Date startDate;
 	private Date dueDate;
 	private boolean renewed;

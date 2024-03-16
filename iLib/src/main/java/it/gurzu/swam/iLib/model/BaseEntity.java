@@ -2,9 +2,20 @@ package it.gurzu.swam.iLib.model;
 
 import java.util.Objects;
 
+import jakarta.persistence.Column;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.MappedSuperclass;
+
+@MappedSuperclass
 public abstract class BaseEntity {
 	
+	@Id
+	@GeneratedValue(strategy = GenerationType.AUTO)	
 	private Long id;
+
+	@Column(unique = true)
 	private String uuid;
 	
 	protected BaseEntity() {}
@@ -40,6 +51,4 @@ public abstract class BaseEntity {
 		return Objects.equals(uuid, ((BaseEntity)obj).getUuid());
 	}
 
-	
-	
 }

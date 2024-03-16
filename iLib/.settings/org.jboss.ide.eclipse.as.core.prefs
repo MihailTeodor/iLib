@@ -1,0 +1,6 @@
+eclipse.preferences.version=1
+<<<<<<< HEAD
+org.jboss.ide.eclipse.as.core.singledeployable.deployableList=
+=======
+org.jboss.ide.eclipse.as.core.singledeployable.deployableList=datasource/iLibDS.xml\n\n
+>>>>>>> branch 'model' of git@github.com:MihailTeodor/iLib.git

@@ -1,5 +1,10 @@
 package it.gurzu.swam.iLib.model;
 
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
+
+@Entity
+@Table(name = "books")
 public class Book extends Article {
 	
 	private String author;

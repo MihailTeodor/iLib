@@ -2,6 +2,14 @@ package it.gurzu.swam.iLib.model;
 
 import java.sql.Date;
 
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Inheritance;
+import jakarta.persistence.InheritanceType;
+
+@Entity
+@Inheritance(strategy = InheritanceType.TABLE_PER_CLASS)
 public abstract class Article extends BaseEntity {
 
 	private String location;
@@ -10,6 +18,8 @@ public abstract class Article extends BaseEntity {
 	private String publisher;
 	private String genre;
 	private String description;
+	
+	@Enumerated(EnumType.STRING)
 	private State state;
 	
 	Article(){ }

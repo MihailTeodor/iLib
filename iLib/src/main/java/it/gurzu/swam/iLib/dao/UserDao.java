@@ -31,9 +31,9 @@ public class UserDao extends BaseDao<User> {
 	}
 
 
-	public List<User> findUsersByTelephoneNumber(String telNum){
-		return this.em.createQuery("FROM User where telNum = :telNum", User.class)
-			.setParameter("telNum", telNum)
+	public List<User> findUsersByTelephoneNumber(String telephoneNumber){
+		return this.em.createQuery("FROM User where telephoneNumber = :telephoneNumber", User.class)
+			.setParameter("telephoneNumber", telephoneNumber)
 			.getResultList();
 	}
 

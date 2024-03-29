@@ -1,5 +1,6 @@
 package it.gurzu.swam.iLib.dao;
 
+import java.sql.Date;
 import java.util.List;
 
 import it.gurzu.swam.iLib.model.Article;
@@ -32,7 +33,7 @@ public class ArticleDao extends BaseDao<Article> {
 
 	public List<Article> findArticlesByYearEdition(String yearEdition){
 		return this.em.createQuery("FROM Article where yearEdition = :yearEdition", Article.class)
-			.setParameter("yearEdition", yearEdition)
+			.setParameter("yearEdition", Date.valueOf(yearEdition))
 			.getResultList();
 	}
 

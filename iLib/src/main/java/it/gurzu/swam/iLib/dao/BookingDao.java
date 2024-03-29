@@ -14,7 +14,19 @@ public class BookingDao extends BaseDao<Booking> {
 		super(Booking.class);
 	}
 	
-	public List<Booking> findBookingsByUser(User user){
+	public User getUserFromBooking(Booking booking) {
+		return this.em.createQuery("SELECT b.bookingUser FROM Booking b WHERE b.id = :bookingId", User.class)
+				.setParameter("bookingId", booking.getId())
+				.getSingleResult();
+	}
+
+	public Article getArticleFromBooking(Booking booking) {
+		return this.em.createQuery("SELECT b.bookedArticle FROM Booking b WHERE b.id = :bookingId", Article.class)
+				.setParameter("bookingId", booking.getId())
+				.getSingleResult();
+	}
+	
+	public List<Booking> findBookingsByUser(User user) {
 		return this.em.createQuery("SELECT b FROM Booking b WHERE b.bookingUser = :user", Booking.class)
 				.setParameter("user", user)
 				.getResultList();

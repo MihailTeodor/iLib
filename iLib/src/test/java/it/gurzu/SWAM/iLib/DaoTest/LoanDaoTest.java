@@ -1,5 +1,6 @@
 package it.gurzu.SWAM.iLib.DaoTest;
 
+import java.sql.Date;
 import java.util.List;
 
 import org.apache.commons.lang3.reflect.FieldUtils;
@@ -22,14 +23,13 @@ public class LoanDaoTest extends JPATest {
 	@Override
 	protected void init() throws IllegalAccessException {
 		user = ModelFactory.user();
-		user.setName("Mihail");
 		
 		article = ModelFactory.book();
-		article.setTitle("Cujo");
 		
 		loan = ModelFactory.loan();
 		loan.setArticleOnLoan(article);
 		loan.setLoaningUser(user);
+		loan.setDueDate(Date.valueOf("2024-01-01"));
 		
 		em.persist(article);
 		em.persist(user);
@@ -52,16 +52,34 @@ public class LoanDaoTest extends JPATest {
 	}
 	
 	@Test
-	public void testFindLoansByUser() {
-		List<Loan> retrievedLoans = loanDao.findLoansByUser(user);
-		Assertions.assertEquals(1, retrievedLoans.size());
-		Assertions.assertEquals(true, retrievedLoans.contains(loan));
-	}
-	
-	@Test
-	public void testFindLoansByArticle() {
-		List<Loan> retrievedLoans = loanDao.findLoansByArticle(article);
-		Assertions.assertEquals(1, retrievedLoans.size());
-		Assertions.assertEquals(true, retrievedLoans.contains(loan));
+	public void testSearchLoans() {
+		Article article2 = ModelFactory.magazine();
+		Loan loan2 = ModelFactory.loan();
+		loan2.setArticleOnLoan(article2);
+		loan2.setLoaningUser(user);
+		loan2.setDueDate(Date.valueOf("2024-03-01"));
+		em.persist(article2);
+		em.persist(loan2);
+		
+		List<Loan> retrievedLoans = loanDao.searchLoans(user, null);
+		
+		Assertions.assertEquals(2, retrievedLoans.size());
+		Assertions.assertEquals(loan2, retrievedLoans.get(0));
+		Assertions.assertEquals(loan, retrievedLoans.get(1));
+
+		User user2 = ModelFactory.user();
+		em.persist(user2);
+		
+		Loan loan3 = ModelFactory.loan();
+		loan3.setLoaningUser(user2);
+		loan3.setArticleOnLoan(article2);
+		loan3.setDueDate(Date.valueOf("2024-05-01"));
+		em.persist(loan3);
+		
+		retrievedLoans = loanDao.searchLoans(null, article2);
+		
+		Assertions.assertEquals(2, retrievedLoans.size());
+		Assertions.assertEquals(loan3, retrievedLoans.get(0));
+		Assertions.assertEquals(loan2, retrievedLoans.get(1));	
 	}
 }

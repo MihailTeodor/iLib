@@ -18,20 +18,12 @@ public class BookDaoTest extends JPATest {
 	@Override
 	protected void init() throws IllegalAccessException {
 		book = ModelFactory.book();
-		book.setAuthor("King");
 		book.setIsbn("1234567");
 		
 		em.persist(book);
 		
 		bookDao = new BookDao();
 		FieldUtils.writeField(bookDao, "em", em, true); 
-	}
-
-	@Test
-	public void testFindBookByAuthor() {
-		List<Book> retrievedBooks = bookDao.findBooksByAuthor("King");
-		Assertions.assertEquals(1, retrievedBooks.size());
-		Assertions.assertEquals(true, retrievedBooks.contains(book));
 	}
 	
 	@Test

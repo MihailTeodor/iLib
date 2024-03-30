@@ -1,6 +1,6 @@
 package it.gurzu.SWAM.iLib.DaoTest;
 
-import java.sql.Date;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.commons.lang3.reflect.FieldUtils;
@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import it.gurzu.swam.iLib.dao.ArticleDao;
 import it.gurzu.swam.iLib.model.Article;
 import it.gurzu.swam.iLib.model.ModelFactory;
+import it.gurzu.swam.iLib.model.MovieDVD;
 
 public class ArticleDaoTest extends JPATest {
 
@@ -21,44 +22,32 @@ public class ArticleDaoTest extends JPATest {
 		article = ModelFactory.book();
 		article.setTitle("Cujo");
 		article.setGenre("horror");
-		article.setPublisher("publisher");
-		article.setYearEdition(Date.valueOf("2024-01-01"));
 		
 		em.persist(article);
 		
 		articleDao = new ArticleDao();
 		FieldUtils.writeField(articleDao, "em", em, true); 
 	}
-
-	@Test 
-	public void testFindArticlesByTitle() {
-		List<Article> retrievedArticles = articleDao.findArticlesByTitle("Cujo");
-		Assertions.assertEquals(1, retrievedArticles.size());
-		Assertions.assertEquals(true, retrievedArticles.contains(article));
-	}
 	
-	@Test 
-	public void testFindArticlesByGenre() {
-		List<Article> retrievedArticles = articleDao.findArticlesByGenre("horror");
+	@Test
+	public void testFindArticles() {
+		MovieDVD articleToAdd = ModelFactory.movieDVD();
+		articleToAdd.setTitle("Cujo");
+		articleToAdd.setGenre("horror");
+		articleToAdd.setDirector("Teague");
+		em.persist(articleToAdd);
+		
+		List<Article> retrievedArticles = articleDao.findArticles("Cujo", "inexistingGenre", null, null, null, null, null);
+		Assertions.assertEquals(true, retrievedArticles.isEmpty());
+		
+		retrievedArticles = articleDao.findArticles("Cujo", "horror", null, null, null, null, "Teague");
 		Assertions.assertEquals(1, retrievedArticles.size());
-		Assertions.assertEquals(true, retrievedArticles.contains(article));
+		Assertions.assertEquals(true, retrievedArticles.contains(articleToAdd));
+		
+		retrievedArticles = articleDao.findArticles("Cujo", "horror", null, null, null, null, null);
+		List<Article> targetArticleList = new ArrayList<Article>();
+		targetArticleList.add(article);
+		targetArticleList.add(articleToAdd);
+		Assertions.assertEquals(true, retrievedArticles.containsAll(targetArticleList));
 	}
-
-	@Test 
-	public void testFindArticlesByPublisher() {
-		List<Article> retrievedArticles = articleDao.findArticlesByPublisher("publisher");
-		Assertions.assertEquals(1, retrievedArticles.size());
-		Assertions.assertEquals(true, retrievedArticles.contains(article));
-	}
-
-	@Test 
-	public void testFindArticlesByYearEdition() {
-		List<Article> retrievedArticles = articleDao.findArticlesByYearEdition("2024-01-01");
-		Assertions.assertEquals(1, retrievedArticles.size());
-		Assertions.assertEquals(true, retrievedArticles.contains(article));
-	}
-
-	
-	
-	
 }

@@ -25,16 +25,14 @@ public class BookingDao extends BaseDao<Booking> {
 				.setParameter("bookingId", booking.getId())
 				.getSingleResult();
 	}
-	
-	public List<Booking> findBookingsByUser(User user) {
-		return this.em.createQuery("SELECT b FROM Booking b WHERE b.bookingUser = :user", Booking.class)
-				.setParameter("user", user)
-				.getResultList();
-	}
-
-    public List<Booking> findBookingsByArticle(Article article) {
-        return this.em.createQuery("SELECT b FROM Booking b WHERE b.bookedArticle = :article", Booking.class)
-                .setParameter("article", article)
-                .getResultList();
+	    
+    public List<Booking> searchBookings(User bookingUser, Article bookedArticle) {
+    	return this.em.createQuery("SELECT b FROM Booking b WHERE"
+    			+ "(:bookedArticle is null or bookedArticle = :bookedArticle) and"
+    			+ "(:bookingUser is null or bookingUser = :bookingUser)"
+    			+ "ORDER BY b.bookingEndDate DESC", Booking.class)
+    			.setParameter("bookedArticle", bookedArticle)
+    			.setParameter("bookingUser", bookingUser)
+    			.getResultList();
     }
 }

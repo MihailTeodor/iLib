@@ -18,7 +18,6 @@ public class MovieDVDDaoTest extends JPATest {
 	@Override
 	protected void init() throws IllegalAccessException {
 		movieDVD = ModelFactory.movieDVD();
-		movieDVD.setDirector("Spielberg");
 		movieDVD.setIsan("123");
 		
 		em.persist(movieDVD);
@@ -27,14 +26,6 @@ public class MovieDVDDaoTest extends JPATest {
 		FieldUtils.writeField(movieDVDDao, "em", em, true); 
 	}
 	
-	
-	@Test
-	public void testFindMoviesByDirector() {
-		List<MovieDVD> retrievedMovieDVDs = movieDVDDao.findMoviesByDirector("Spielberg");
-		Assertions.assertEquals(1, retrievedMovieDVDs.size());
-		Assertions.assertEquals(true, retrievedMovieDVDs.contains(movieDVD));
-	}
-
 	@Test
 	public void testFindMoviesByIsan() {
 		List<MovieDVD> retrievedMovieDVDs = movieDVDDao.findMoviesByIsan("123");

@@ -22,8 +22,6 @@ public class UserDaoTest extends JPATest{
 		user.setName("Mihail");
 		user.setSurname("Gurzu");
 		user.setEmail("myEmail");
-		user.setTelephoneNumber("123456789");
-		user.setPassword("password");
 		
 		em.persist(user);
 		
@@ -46,7 +44,6 @@ public class UserDaoTest extends JPATest{
 	@Test
 	public void testSave() {
 		User userToPersist = ModelFactory.user();
-		userToPersist.setName("Teodor");
 		
 		userDao.save(userToPersist);
 		User manuallyRetrievedUser = 
@@ -60,7 +57,6 @@ public class UserDaoTest extends JPATest{
 	@Test
 	public void testDeleteExistingUser() {
 		User userToDelete = ModelFactory.user();
-		userToDelete.setName("Teodor");
 		em.persist(userToDelete);
 		
 		List<User> manuallyRetrievedUsers = em.createQuery("FROM User WHERE", User.class)
@@ -92,25 +88,24 @@ public class UserDaoTest extends JPATest{
 		User retrievedUsers = userDao.findUsersByEmail("myEmail");
 		Assertions.assertEquals(user, retrievedUsers);
 	}
-	
+
 	@Test
-	public void testFindUsersByName() {
-		List<User> retrievedUsers = userDao.findUsersByName("Mihail");
+	public void testFindUsers() {
+		User userToAdd = ModelFactory.user();
+		userToAdd.setName("Mihail");
+		em.persist(userToAdd);
+		
+		List<User> retrievedUsers = userDao.findUsers("Mihail", "inexistingSurname", null);
+		Assertions.assertEquals(true, retrievedUsers.isEmpty());
+		
+		retrievedUsers = userDao.findUsers("Mihail", "Gurzu", null);
 		Assertions.assertEquals(1, retrievedUsers.size());
 		Assertions.assertEquals(true, retrievedUsers.contains(user));
-	}
-	
-	@Test
-	public void testFindUsersBySurname() {
-		List<User> retrievedUsers = userDao.findUsersBySurname("Gurzu");
-		Assertions.assertEquals(1, retrievedUsers.size());
-		Assertions.assertEquals(true, retrievedUsers.contains(user));
-	}
-	
-	@Test
-	public void testFindUsersByTelephoneNumber() {
-		List<User> retrievedUsers = userDao.findUsersByTelephoneNumber("123456789");
-		Assertions.assertEquals(1, retrievedUsers.size());
-		Assertions.assertEquals(true, retrievedUsers.contains(user));
+		
+		retrievedUsers = userDao.findUsers("Mihail", null, null);
+		List<User> targetUserList = new ArrayList<User>();
+		targetUserList.add(user);
+		targetUserList.add(userToAdd);
+		Assertions.assertEquals(true, retrievedUsers.containsAll(targetUserList));
 	}
 }

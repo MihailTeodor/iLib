@@ -26,13 +26,6 @@ public class MagazineDaoTest extends JPATest {
 		magazineDao = new MagazineDao();
 		FieldUtils.writeField(magazineDao, "em", em, true); 
 	}
-
-	@Test
-	public void testFindMagazinesByIssueNumber() {
-		List<Magazine> retrievedMagazines = magazineDao.findMagazineByIssueNumber("3");
-		Assertions.assertEquals(1, retrievedMagazines.size());
-		Assertions.assertEquals(true, retrievedMagazines.contains(magazine));
- 	}
 	
 	@Test
 	public void testFindMagazinesByIssn() {

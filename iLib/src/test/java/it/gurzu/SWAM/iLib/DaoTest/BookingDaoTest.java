@@ -1,5 +1,6 @@
 package it.gurzu.SWAM.iLib.DaoTest;
 
+import java.sql.Date;
 import java.util.List;
 
 import org.apache.commons.lang3.reflect.FieldUtils;
@@ -22,14 +23,13 @@ public class BookingDaoTest extends JPATest {
 	@Override
 	protected void init() throws IllegalAccessException {
 		user = ModelFactory.user();
-		user .setName("Mihail");
 		
 		article = ModelFactory.book();
-		article.setTitle("Cujo");
 		
 		booking = ModelFactory.booking();
 		booking.setBookedArticle(article);
 		booking.setBookingUser(user);
+		booking.setBookingEndDate(Date.valueOf("2024-01-01"));
 		
 		em.persist(article);
 		em.persist(user);
@@ -50,18 +50,35 @@ public class BookingDaoTest extends JPATest {
 		Article retrievedArticle = bookingDao.getArticleFromBooking(booking);
 		Assertions.assertEquals(article, retrievedArticle);
 	}
-	
-	@Test
-	public void testFindBookingsByUser() {
-		List<Booking> retrievedBookings = bookingDao.findBookingsByUser(user);
-		Assertions.assertEquals(1, retrievedBookings.size());
-		Assertions.assertEquals(true, retrievedBookings.contains(booking));
-	}
-
-	@Test
-	public void testFindBookingsByArticle() {
-		List<Booking> retrievedBookings = bookingDao.findBookingsByArticle(article);
-		Assertions.assertEquals(1, retrievedBookings.size());
-		Assertions.assertEquals(true, retrievedBookings.contains(booking));		
+		
+	@Test void testSearchBookings() {
+		Article article2 = ModelFactory.magazine();
+		Booking booking2 = ModelFactory.booking();
+		booking2.setBookingUser(user);
+		booking2.setBookedArticle(article2);
+		booking2.setBookingEndDate(Date.valueOf("2024-03-01"));
+		em.persist(article2);
+		em.persist(booking2);
+		
+		List<Booking> retrievedBookings = bookingDao.searchBookings(user, null);
+		
+		Assertions.assertEquals(2, retrievedBookings.size());
+		Assertions.assertEquals(booking2, retrievedBookings.get(0));
+		Assertions.assertEquals(booking, retrievedBookings.get(1));
+				
+		User user2 = ModelFactory.user();
+		em.persist(user2);
+		
+		Booking booking3 = ModelFactory.booking();
+		booking3.setBookingUser(user2);
+		booking3.setBookedArticle(article2);
+		booking3.setBookingEndDate(Date.valueOf("2024-05-01"));
+		em.persist(booking3);
+		
+		retrievedBookings = bookingDao.searchBookings(null, article2);
+		
+		Assertions.assertEquals(2, retrievedBookings.size());
+		Assertions.assertEquals(booking3, retrievedBookings.get(0));
+		Assertions.assertEquals(booking2, retrievedBookings.get(1));
 	}
 }

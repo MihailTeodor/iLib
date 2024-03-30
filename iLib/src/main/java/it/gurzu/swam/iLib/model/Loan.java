@@ -66,4 +66,14 @@ public class Loan extends BaseEntity {
 		this.renewed = renewed;
 	}
 	
+	public static void validateState(Loan loan) {
+		long millis = System.currentTimeMillis();
+		Date today = new Date(millis);
+		int comparizonResult = loan.getDueDate().compareTo(today);
+		if(comparizonResult < 0) {
+			loan.getArticleOnLoan().setState(State.UNAVAILABLE);
+		}
+
+	}
+	
 }

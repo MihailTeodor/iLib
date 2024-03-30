@@ -48,4 +48,13 @@ public class Booking extends BaseEntity {
 		this.bookingEndDate = bookingEndDate;
 	}
 	
+	public static void validateState(Booking booking) {
+		long millis = System.currentTimeMillis();
+		Date today = new Date(millis);
+		int comparisonResult = booking.getBookingEndDate().compareTo(today); 
+		if(comparisonResult < 0) {
+			booking.getBookedArticle().setState(State.AVAILABLE);
+		}
+	}
+	
 }

@@ -6,6 +6,8 @@
 	<groupId>it.gurzu.SWAM</groupId>
 	<artifactId>iLib</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
+	<packaging>war</packaging> 
+
 
 	<name>iLib</name>
 	<description>SWAM course final project</description>

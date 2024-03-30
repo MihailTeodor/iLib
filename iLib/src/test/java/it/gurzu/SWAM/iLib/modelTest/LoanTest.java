@@ -7,7 +7,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import it.gurzu.swam.iLib.model.Article;
-import it.gurzu.swam.iLib.model.Booking;
 import it.gurzu.swam.iLib.model.Loan;
 import it.gurzu.swam.iLib.model.ModelFactory;
 import it.gurzu.swam.iLib.model.State;

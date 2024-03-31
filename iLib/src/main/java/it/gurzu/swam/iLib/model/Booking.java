@@ -48,6 +48,11 @@ public class Booking extends BaseEntity {
 		this.bookingEndDate = bookingEndDate;
 	}
 	
+	/**
+	 * Validates the state of the Article related to a given Booking. 
+	 * If the end date of the Booking has passed, the state of the Article is set to AVAILABLE, thus it can be booked by other users.
+	 * @param booking the Booking relative to the Article to be validated.
+	 */
 	public static void validateState(Booking booking) {
 		long millis = System.currentTimeMillis();
 		Date today = new Date(millis);

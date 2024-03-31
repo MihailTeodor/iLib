@@ -66,6 +66,11 @@ public class Loan extends BaseEntity {
 		this.renewed = renewed;
 	}
 	
+	/**
+	 * Validates the state of the Article related to a given Loan. 
+	 * If the due date has passed, the state of the Article is set to UNAVAILABLE and it cannot be booked anymore.
+	 * @param loan the Loan relative to the Article to be validated.
+	 */
 	public static void validateState(Loan loan) {
 		long millis = System.currentTimeMillis();
 		Date today = new Date(millis);

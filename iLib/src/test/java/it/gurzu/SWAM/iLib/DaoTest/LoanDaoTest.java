@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import it.gurzu.swam.iLib.dao.LoanDao;
 import it.gurzu.swam.iLib.model.Article;
 import it.gurzu.swam.iLib.model.Loan;
+import it.gurzu.swam.iLib.model.LoanState;
 import it.gurzu.swam.iLib.model.ModelFactory;
 import it.gurzu.swam.iLib.model.User;
 
@@ -30,6 +31,7 @@ public class LoanDaoTest extends JPATest {
 		loan.setArticleOnLoan(article);
 		loan.setLoaningUser(user);
 		loan.setDueDate(Date.valueOf("2024-01-01"));
+		loan.setState(LoanState.RETURNED);
 		
 		em.persist(article);
 		em.persist(user);
@@ -58,9 +60,11 @@ public class LoanDaoTest extends JPATest {
 		loan2.setArticleOnLoan(article2);
 		loan2.setLoaningUser(user);
 		loan2.setDueDate(Date.valueOf("2024-03-01"));
+		loan2.setState(LoanState.RETURNED);
 		em.persist(article2);
 		em.persist(loan2);
 		
+		// test search by user
 		List<Loan> retrievedLoans = loanDao.searchLoans(user, null);
 		
 		Assertions.assertEquals(2, retrievedLoans.size());
@@ -74,12 +78,29 @@ public class LoanDaoTest extends JPATest {
 		loan3.setLoaningUser(user2);
 		loan3.setArticleOnLoan(article2);
 		loan3.setDueDate(Date.valueOf("2024-05-01"));
+		loan3.setState(LoanState.ACTIVE);
 		em.persist(loan3);
 		
+		//test search by article
 		retrievedLoans = loanDao.searchLoans(null, article2);
 		
 		Assertions.assertEquals(2, retrievedLoans.size());
 		Assertions.assertEquals(loan3, retrievedLoans.get(0));
 		Assertions.assertEquals(loan2, retrievedLoans.get(1));	
+		
+		// test search by user and article
+		retrievedLoans = loanDao.searchLoans(user2, article2);
+		
+		Assertions.assertEquals(1, retrievedLoans.size());
+		Assertions.assertEquals(loan3, retrievedLoans.get(0));		
+		
+		// test ordering
+		retrievedLoans = loanDao.searchLoans(null, null);
+		
+		Assertions.assertEquals(3, retrievedLoans.size());
+		Assertions.assertEquals(loan3, retrievedLoans.get(0));
+		Assertions.assertEquals(loan2, retrievedLoans.get(1));	
+		Assertions.assertEquals(loan, retrievedLoans.get(2));	
+		
 	}
 }

@@ -30,7 +30,7 @@ public class BookingDao extends BaseDao<Booking> {
     	return this.em.createQuery("SELECT b FROM Booking b WHERE"
     			+ "(:bookedArticle is null or bookedArticle = :bookedArticle) and"
     			+ "(:bookingUser is null or bookingUser = :bookingUser)"
-    			+ "ORDER BY b.bookingEndDate DESC", Booking.class)
+    			+ "ORDER BY b.state, b.bookingEndDate DESC", Booking.class)
     			.setParameter("bookedArticle", bookedArticle)
     			.setParameter("bookingUser", bookingUser)
     			.getResultList();

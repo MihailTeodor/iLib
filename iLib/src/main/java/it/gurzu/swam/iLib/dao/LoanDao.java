@@ -30,7 +30,7 @@ public class LoanDao extends BaseDao<Loan> {
     	return this.em.createQuery("SELECT l FROM Loan l WHERE"
     			+ "(:loaningUser is null or l.loaningUser = :loaningUser) and"
     			+ "(:articleOnLoan is null or l.articleOnLoan = :articleOnLoan)"
-    			+ "ORDER BY l.dueDate DESC", Loan.class)
+    			+ "ORDER BY l.state, l.dueDate DESC", Loan.class)
     			.setParameter("loaningUser", loaningUser)
     			.setParameter("articleOnLoan", articleOnLoan)
     			.getResultList();

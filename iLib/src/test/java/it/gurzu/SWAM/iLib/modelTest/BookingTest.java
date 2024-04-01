@@ -54,6 +54,7 @@ public class BookingTest {
 		}
 		
 		Assertions.assertEquals(ArticleState.AVAILABLE, booking.getBookedArticle().getState());
+		Assertions.assertEquals(BookingState.CANCELLED, booking.getState());
 	}
 	
 	@Test

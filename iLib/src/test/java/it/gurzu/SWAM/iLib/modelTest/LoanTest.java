@@ -50,6 +50,7 @@ public class LoanTest {
 		Loan.validateState(loan);
 		
 		Assertions.assertEquals(ArticleState.UNAVAILABLE, loan.getArticleOnLoan().getState());
+		Assertions.assertEquals(LoanState.OVERDUE, loan.getState());
 	}
 	
 	@Test

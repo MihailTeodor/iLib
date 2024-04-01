@@ -78,7 +78,8 @@ public class Loan extends BaseEntity {
 
 	/**
 	 * Validates the state of the Article related to a given ACTIVE Loan. 
-	 * If the due date has passed, the state of the Article is set to UNAVAILABLE and it cannot be booked anymore.
+	 * If the due date has passed, the state of the Article is set to UNAVAILABLE and it cannot be booked anymore. 
+	 * In this case the state of the Loan is set to OVERDUE. 
 	 * If the passed loan's state is not ACTIVE, an IllegalArgumentException is thrown.
 	 * @param loan the Loan relative to the Article to be validated.
 	 */
@@ -89,6 +90,7 @@ public class Loan extends BaseEntity {
 			int comparizonResult = loan.getDueDate().compareTo(today);
 			if(comparizonResult < 0) {
 				loan.getArticleOnLoan().setState(ArticleState.UNAVAILABLE);
+				loan.setState(LoanState.OVERDUE);
 			}			
 		}else
 			throw new IllegalArgumentException("The Loan state is not ACTIVE!");

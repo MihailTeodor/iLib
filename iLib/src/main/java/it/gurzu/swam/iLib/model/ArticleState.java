@@ -1,5 +1,5 @@
 package it.gurzu.swam.iLib.model;
 
-public enum State {
+public enum ArticleState {
 	AVAILABLE, UNAVAILABLE, BOOKED, ONLOAN
 }

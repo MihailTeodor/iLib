@@ -16,9 +16,11 @@ public class Loan extends BaseEntity {
 	@ManyToOne
 	private User loaningUser;
 	
-	private Date startDate;
+	private Date loanDate;
 	private Date dueDate;
 	private boolean renewed;
+	
+	private LoanState state;
 
 	Loan() { }
 	
@@ -41,15 +43,7 @@ public class Loan extends BaseEntity {
 	public void setLoaningUser(User loaningUser) {
 		this.loaningUser = loaningUser;
 	}
-	
-	public Date getStartDate() {
-		return startDate;
-	}
-	
-	public void setStartDate(Date startDate) {
-		this.startDate = startDate;
-	}
-	
+		
 	public Date getDueDate() {
 		return dueDate;
 	}
@@ -66,19 +60,37 @@ public class Loan extends BaseEntity {
 		this.renewed = renewed;
 	}
 	
+	public Date getLoanDate() {
+		return loanDate;
+	}
+
+	public void setLoanDate(Date loanDate) {
+		this.loanDate = loanDate;
+	}
+
+	public LoanState getState() {
+		return state;
+	}
+
+	public void setState(LoanState state) {
+		this.state = state;
+	}
+
 	/**
-	 * Validates the state of the Article related to a given Loan. 
+	 * Validates the state of the Article related to a given ACTIVE Loan. 
 	 * If the due date has passed, the state of the Article is set to UNAVAILABLE and it cannot be booked anymore.
+	 * If the passed loan's state is not ACTIVE, an IllegalArgumentException is thrown.
 	 * @param loan the Loan relative to the Article to be validated.
 	 */
 	public static void validateState(Loan loan) {
-		long millis = System.currentTimeMillis();
-		Date today = new Date(millis);
-		int comparizonResult = loan.getDueDate().compareTo(today);
-		if(comparizonResult < 0) {
-			loan.getArticleOnLoan().setState(State.UNAVAILABLE);
-		}
-
+		if(loan.getState() == LoanState.ACTIVE) {
+			long millis = System.currentTimeMillis();
+			Date today = new Date(millis);
+			int comparizonResult = loan.getDueDate().compareTo(today);
+			if(comparizonResult < 0) {
+				loan.getArticleOnLoan().setState(ArticleState.UNAVAILABLE);
+			}			
+		}else
+			throw new IllegalArgumentException("The Loan state is not ACTIVE!");
 	}
-	
 }

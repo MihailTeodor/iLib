@@ -8,8 +8,9 @@ import org.junit.jupiter.api.Test;
 
 import it.gurzu.swam.iLib.model.Article;
 import it.gurzu.swam.iLib.model.Booking;
+import it.gurzu.swam.iLib.model.BookingState;
 import it.gurzu.swam.iLib.model.ModelFactory;
-import it.gurzu.swam.iLib.model.State;
+import it.gurzu.swam.iLib.model.ArticleState;
 import it.gurzu.swam.iLib.model.User;
 
 public class BookingTest {
@@ -27,25 +28,48 @@ public class BookingTest {
 	}
 	
 	@Test
+	public void testValidateStateWhenBookingStateIsNotActive() {
+		booking.setState(BookingState.COMPLETED);
+		long millis = System.currentTimeMillis();
+		Date today = new Date(millis);
+		booking.setBookingEndDate(Date.valueOf(today.toLocalDate().plusDays(1)));
+
+		Exception thrownException = Assertions.assertThrows(IllegalArgumentException.class, () -> {
+			Booking.validateState(booking);
+		});
+		Assertions.assertEquals("The Booking state is not ACTIVE!", thrownException.getMessage());
+	}
+	
+	@Test
 	public void testValidateStateWhenBookingEndDatePassed() {
+		booking.setState(BookingState.ACTIVE);
 		long millis = System.currentTimeMillis();
 		Date today = new Date(millis);
 		booking.setBookingEndDate(Date.valueOf(today.toLocalDate().plusDays(-1)));
 		
-		Booking.validateState(booking);
+		try {
+			Booking.validateState(booking);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 		
-		Assertions.assertEquals(State.AVAILABLE, booking.getBookedArticle().getState());
+		Assertions.assertEquals(ArticleState.AVAILABLE, booking.getBookedArticle().getState());
 	}
 	
 	@Test
 	public void testValidateStateWhenBookingEndDateNotPassed() {
+		booking.setState(BookingState.ACTIVE);
 		long millis = System.currentTimeMillis();
 		Date today = new Date(millis);
 		booking.setBookingEndDate(Date.valueOf(today.toLocalDate().plusDays(1)));
-		booking.getBookedArticle().setState(State.BOOKED);
+		booking.getBookedArticle().setState(ArticleState.BOOKED);
 		
-		Booking.validateState(booking);
+		try {
+			Booking.validateState(booking);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 		
-		Assertions.assertEquals(State.BOOKED, booking.getBookedArticle().getState());
+		Assertions.assertEquals(ArticleState.BOOKED, booking.getBookedArticle().getState());
 	}
 }

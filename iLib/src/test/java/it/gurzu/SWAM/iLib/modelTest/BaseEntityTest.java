@@ -20,9 +20,10 @@ public class BaseEntityTest {
 	
 	@Test
 	public void testNullUUID() {
-		Assertions.assertThrows(IllegalArgumentException.class, ()->{
+		Exception thrownException = Assertions.assertThrows(IllegalArgumentException.class, ()->{
 			new FakeBaseEntity(null);
 		});
+		Assertions.assertEquals("uuid cannot be null!", thrownException.getMessage());	
 	}
 	
 	@Test

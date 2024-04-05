@@ -1,10 +1,11 @@
 package it.gurzu.SWAM.iLib.daoTest;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import java.sql.Date;
 import java.util.List;
 
 import org.apache.commons.lang3.reflect.FieldUtils;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import it.gurzu.swam.iLib.dao.BookingDao;
@@ -44,13 +45,13 @@ public class BookingDaoTest extends JPATest {
 	@Test
 	public void testGetUserFromBooking() {
 		User retrievedUser = bookingDao.getUserFromBooking(booking);
-		Assertions.assertEquals(user, retrievedUser);
+		assertEquals(user, retrievedUser);
 	}
 	
 	@Test
 	public void testGetArticleFromBooking() {
 		Article retrievedArticle = bookingDao.getArticleFromBooking(booking);
-		Assertions.assertEquals(article, retrievedArticle);
+		assertEquals(article, retrievedArticle);
 	}
 		
 	@Test 
@@ -67,9 +68,9 @@ public class BookingDaoTest extends JPATest {
 		// test search by user
 		List<Booking> retrievedBookings = bookingDao.searchBookings(user, null);
 		
-		Assertions.assertEquals(2, retrievedBookings.size());
-		Assertions.assertEquals(booking2, retrievedBookings.get(0));
-		Assertions.assertEquals(booking, retrievedBookings.get(1));
+		assertEquals(2, retrievedBookings.size());
+		assertEquals(booking2, retrievedBookings.get(0));
+		assertEquals(booking, retrievedBookings.get(1));
 				
 		User user2 = ModelFactory.user();
 		em.persist(user2);
@@ -84,22 +85,22 @@ public class BookingDaoTest extends JPATest {
 		// test search by article
 		retrievedBookings = bookingDao.searchBookings(null, article2);
 		
-		Assertions.assertEquals(2, retrievedBookings.size());
-		Assertions.assertEquals(booking3, retrievedBookings.get(0));
-		Assertions.assertEquals(booking2, retrievedBookings.get(1));
+		assertEquals(2, retrievedBookings.size());
+		assertEquals(booking3, retrievedBookings.get(0));
+		assertEquals(booking2, retrievedBookings.get(1));
 		
 		// test search by user and article
 		retrievedBookings = bookingDao.searchBookings(user2, article2);
 		
-		Assertions.assertEquals(1, retrievedBookings.size());
-		Assertions.assertEquals(booking3, retrievedBookings.get(0));
+		assertEquals(1, retrievedBookings.size());
+		assertEquals(booking3, retrievedBookings.get(0));
 		
 		// test ordering
 		retrievedBookings = bookingDao.searchBookings(null, null);
 		
-		Assertions.assertEquals(3, retrievedBookings.size());
-		Assertions.assertEquals(booking3, retrievedBookings.get(0));
-		Assertions.assertEquals(booking2, retrievedBookings.get(1));
-		Assertions.assertEquals(booking, retrievedBookings.get(2));
+		assertEquals(3, retrievedBookings.size());
+		assertEquals(booking3, retrievedBookings.get(0));
+		assertEquals(booking2, retrievedBookings.get(1));
+		assertEquals(booking, retrievedBookings.get(2));
 	}
 }

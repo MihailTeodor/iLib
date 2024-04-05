@@ -1,8 +1,10 @@
 package it.gurzu.SWAM.iLib.modelTest;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import java.sql.Date;
 
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -34,10 +36,10 @@ public class LoanTest {
 		Date today = new Date(millis);
 		loan.setDueDate(Date.valueOf(today.toLocalDate().plusDays(1)));
 
-		Exception thrownException = Assertions.assertThrows(IllegalArgumentException.class, () -> {
+		Exception thrownException = assertThrows(IllegalArgumentException.class, () -> {
 			Loan.validateState(loan);
 		});
-		Assertions.assertEquals("The Loan state is not ACTIVE!", thrownException.getMessage());
+		assertEquals("The Loan state is not ACTIVE!", thrownException.getMessage());
 	}
 
 	@Test
@@ -49,8 +51,8 @@ public class LoanTest {
 		
 		Loan.validateState(loan);
 		
-		Assertions.assertEquals(ArticleState.UNAVAILABLE, loan.getArticleOnLoan().getState());
-		Assertions.assertEquals(LoanState.OVERDUE, loan.getState());
+		assertEquals(ArticleState.UNAVAILABLE, loan.getArticleOnLoan().getState());
+		assertEquals(LoanState.OVERDUE, loan.getState());
 	}
 	
 	@Test
@@ -63,7 +65,7 @@ public class LoanTest {
 		
 		Loan.validateState(loan);
 		
-		Assertions.assertEquals(ArticleState.ONLOAN, loan.getArticleOnLoan().getState());
+		assertEquals(ArticleState.ONLOAN, loan.getArticleOnLoan().getState());
 	}
 
 }

@@ -1,10 +1,11 @@
 package it.gurzu.SWAM.iLib.daoTest;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.commons.lang3.reflect.FieldUtils;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import it.gurzu.swam.iLib.dao.ArticleDao;
@@ -38,16 +39,16 @@ public class ArticleDaoTest extends JPATest {
 		em.persist(articleToAdd);
 		
 		List<Article> retrievedArticles = articleDao.findArticles("Cujo", "inexistingGenre", null, null, null, null, null);
-		Assertions.assertEquals(true, retrievedArticles.isEmpty());
+		assertEquals(true, retrievedArticles.isEmpty());
 		
 		retrievedArticles = articleDao.findArticles("Cujo", "horror", null, null, null, null, "Teague");
-		Assertions.assertEquals(1, retrievedArticles.size());
-		Assertions.assertEquals(true, retrievedArticles.contains(articleToAdd));
+		assertEquals(1, retrievedArticles.size());
+		assertEquals(true, retrievedArticles.contains(articleToAdd));
 		
 		retrievedArticles = articleDao.findArticles("Cujo", "horror", null, null, null, null, null);
 		List<Article> targetArticleList = new ArrayList<Article>();
 		targetArticleList.add(article);
 		targetArticleList.add(articleToAdd);
-		Assertions.assertEquals(true, retrievedArticles.containsAll(targetArticleList));
+		assertEquals(true, retrievedArticles.containsAll(targetArticleList));
 	}
 }

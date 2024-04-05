@@ -1,9 +1,10 @@
 package it.gurzu.SWAM.iLib.daoTest;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import java.util.List;
 
 import org.apache.commons.lang3.reflect.FieldUtils;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import it.gurzu.swam.iLib.dao.BookDao;
@@ -29,7 +30,7 @@ public class BookDaoTest extends JPATest {
 	@Test
 	public void testFindBookByIsbn() {
 		List<Book> retrievedBooks = bookDao.findBooksByIsbn("1234567");
-		Assertions.assertEquals(1, retrievedBooks.size());
-		Assertions.assertEquals(true, retrievedBooks.contains(book));
+		assertEquals(1, retrievedBooks.size());
+		assertEquals(true, retrievedBooks.contains(book));
 	}
 }

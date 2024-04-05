@@ -1,10 +1,12 @@
 package it.gurzu.SWAM.iLib.daoTest;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.commons.lang3.reflect.FieldUtils;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import it.gurzu.swam.iLib.dao.UserDao;
@@ -32,13 +34,13 @@ public class UserDaoTest extends JPATest{
 	@Test
 	public void testFindByIdExistingUser() {
 		User retrievedUser = userDao.findById(user.getId());
-		Assertions.assertEquals(user, retrievedUser);
+		assertEquals(user, retrievedUser);
 	}
 
 	@Test
 	public void testFindByIdNonExistingUser() {
 		User retrievedUser = userDao.findById(user.getId() + 1);
-		Assertions.assertEquals(null, retrievedUser);
+		assertEquals(null, retrievedUser);
 	}
 
 	@Test
@@ -51,7 +53,7 @@ public class UserDaoTest extends JPATest{
 				  .setParameter("uuid", userToPersist.getUuid())
 				  .getSingleResult();
 		
-		Assertions.assertEquals(userToPersist, manuallyRetrievedUser);
+		assertEquals(userToPersist, manuallyRetrievedUser);
 	}
 	
 	@Test
@@ -64,7 +66,7 @@ public class UserDaoTest extends JPATest{
 					.setParameter("uuid", user.getUuid())
 					.getSingleResult();
 
-		Assertions.assertEquals(user, manuallyRetrievedUser);
+		assertEquals(user, manuallyRetrievedUser);
 	}
 	
 	@Test
@@ -78,20 +80,20 @@ public class UserDaoTest extends JPATest{
 		tmpUsersList.add(user);
 		tmpUsersList.add(userToDelete);
 		
-		Assertions.assertEquals(tmpUsersList, manuallyRetrievedUsers);
+		assertEquals(tmpUsersList, manuallyRetrievedUsers);
 	
 		userDao.delete(userToDelete);
 		tmpUsersList.remove(userToDelete);
 		manuallyRetrievedUsers = em.createQuery("FROM User WHERE", User.class)
 				  .getResultList();
 		
-		Assertions.assertEquals(tmpUsersList, manuallyRetrievedUsers);
+		assertEquals(tmpUsersList, manuallyRetrievedUsers);
 	}
 
 	@Test
 	public void testDeleteNonExistingUser() {
 		User tmpUser = ModelFactory.user();
-		Assertions.assertThrows(IllegalArgumentException.class, ()->{
+		assertThrows(IllegalArgumentException.class, ()->{
 			userDao.delete(tmpUser);
 		});
 	}
@@ -99,7 +101,7 @@ public class UserDaoTest extends JPATest{
 	@Test
 	public void testFindUsersByEmail() {
 		User retrievedUsers = userDao.findUsersByEmail("myEmail");
-		Assertions.assertEquals(user, retrievedUsers);
+		assertEquals(user, retrievedUsers);
 	}
 
 	@Test
@@ -109,16 +111,16 @@ public class UserDaoTest extends JPATest{
 		em.persist(userToAdd);
 		
 		List<User> retrievedUsers = userDao.findUsers("Mihail", "inexistingSurname", null);
-		Assertions.assertEquals(true, retrievedUsers.isEmpty());
+		assertEquals(true, retrievedUsers.isEmpty());
 		
 		retrievedUsers = userDao.findUsers("Mihail", "Gurzu", null);
-		Assertions.assertEquals(1, retrievedUsers.size());
-		Assertions.assertEquals(true, retrievedUsers.contains(user));
+		assertEquals(1, retrievedUsers.size());
+		assertEquals(true, retrievedUsers.contains(user));
 		
 		retrievedUsers = userDao.findUsers("Mihail", null, null);
 		List<User> targetUserList = new ArrayList<User>();
 		targetUserList.add(user);
 		targetUserList.add(userToAdd);
-		Assertions.assertEquals(true, retrievedUsers.containsAll(targetUserList));
+		assertEquals(true, retrievedUsers.containsAll(targetUserList));
 	}
 }

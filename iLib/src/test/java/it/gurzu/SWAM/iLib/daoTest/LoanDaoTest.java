@@ -1,10 +1,11 @@
 package it.gurzu.SWAM.iLib.daoTest;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import java.sql.Date;
 import java.util.List;
 
 import org.apache.commons.lang3.reflect.FieldUtils;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import it.gurzu.swam.iLib.dao.LoanDao;
@@ -44,13 +45,13 @@ public class LoanDaoTest extends JPATest {
 	@Test
 	public void testGetUserFromLoan() {
 		User retrievedUser = loanDao.getUserFromLoan(loan);
-		Assertions.assertEquals(user, retrievedUser);
+		assertEquals(user, retrievedUser);
 	}
 	
 	@Test
 	public void testGetArticleFromLoan() {
 		Article retrievedArticle = loanDao.getArticleFromLoan(loan);
-		Assertions.assertEquals(article, retrievedArticle);
+		assertEquals(article, retrievedArticle);
 	}
 	
 	@Test
@@ -67,9 +68,9 @@ public class LoanDaoTest extends JPATest {
 		// test search by user
 		List<Loan> retrievedLoans = loanDao.searchLoans(user, null);
 		
-		Assertions.assertEquals(2, retrievedLoans.size());
-		Assertions.assertEquals(loan2, retrievedLoans.get(0));
-		Assertions.assertEquals(loan, retrievedLoans.get(1));
+		assertEquals(2, retrievedLoans.size());
+		assertEquals(loan2, retrievedLoans.get(0));
+		assertEquals(loan, retrievedLoans.get(1));
 
 		User user2 = ModelFactory.user();
 		em.persist(user2);
@@ -84,23 +85,23 @@ public class LoanDaoTest extends JPATest {
 		//test search by article
 		retrievedLoans = loanDao.searchLoans(null, article2);
 		
-		Assertions.assertEquals(2, retrievedLoans.size());
-		Assertions.assertEquals(loan3, retrievedLoans.get(0));
-		Assertions.assertEquals(loan2, retrievedLoans.get(1));	
+		assertEquals(2, retrievedLoans.size());
+		assertEquals(loan3, retrievedLoans.get(0));
+		assertEquals(loan2, retrievedLoans.get(1));	
 		
 		// test search by user and article
 		retrievedLoans = loanDao.searchLoans(user2, article2);
 		
-		Assertions.assertEquals(1, retrievedLoans.size());
-		Assertions.assertEquals(loan3, retrievedLoans.get(0));		
+		assertEquals(1, retrievedLoans.size());
+		assertEquals(loan3, retrievedLoans.get(0));		
 		
 		// test ordering
 		retrievedLoans = loanDao.searchLoans(null, null);
 		
-		Assertions.assertEquals(3, retrievedLoans.size());
-		Assertions.assertEquals(loan3, retrievedLoans.get(0));
-		Assertions.assertEquals(loan2, retrievedLoans.get(1));	
-		Assertions.assertEquals(loan, retrievedLoans.get(2));	
+		assertEquals(3, retrievedLoans.size());
+		assertEquals(loan3, retrievedLoans.get(0));
+		assertEquals(loan2, retrievedLoans.get(1));	
+		assertEquals(loan, retrievedLoans.get(2));	
 		
 	}
 }

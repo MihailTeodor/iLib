@@ -72,20 +72,19 @@ public class Booking extends BaseEntity {
 	}
 
 	/**
-	 * Validates the state of the Article related to a given ACTIVE Booking. 
+	 * Validates the state of the Article related to the specific Booking. 
 	 * If the end date of the Booking has passed, the state of the Article is set to AVAILABLE, thus it can be booked by other users.
 	 * In this case, the state of the booking is set to CANCELLED.
-	 * If the passed booking state is not ACTIVE, throws an IllegalArgumentException.
-	 * @param booking the Booking relative to the Article to be validated.
+	 * If the specific booking state is not ACTIVE, throws an IllegalArgumentException.
 	 */
-	public static void validateState(Booking booking) {
-		if(booking.state == BookingState.ACTIVE) {
+	public void validateState() {
+		if(this.state == BookingState.ACTIVE) {
 			long millis = System.currentTimeMillis();
 			Date today = new Date(millis);
-			int comparisonResult = booking.getBookingEndDate().compareTo(today); 
+			int comparisonResult = this.getBookingEndDate().compareTo(today); 
 			if(comparisonResult < 0) {
-				booking.getBookedArticle().setState(ArticleState.AVAILABLE);
-				booking.setState(BookingState.CANCELLED);
+				this.getBookedArticle().setState(ArticleState.AVAILABLE);
+				this.setState(BookingState.CANCELLED);
 			}			
 		}else
 			throw new IllegalArgumentException("The Booking state is not ACTIVE!");

@@ -30,42 +30,43 @@ public class LoanTest {
 	}
 	
 	@Test
-	public void testValidateStateWhenLoanStateIsNotActive() {
+	public void testValidateState_WhenLoanStateIsNotActive_ThrowsIllegalArgumentException() {
 		loan.setState(LoanState.RETURNED);
 		long millis = System.currentTimeMillis();
 		Date today = new Date(millis);
 		loan.setDueDate(Date.valueOf(today.toLocalDate().plusDays(1)));
 
 		Exception thrownException = assertThrows(IllegalArgumentException.class, () -> {
-			Loan.validateState(loan);
+			loan.validateState();
 		});
 		assertEquals("The Loan state is not ACTIVE!", thrownException.getMessage());
 	}
 
 	@Test
-	public void testValidateStateWhenLoanDueDatePassed() {
+	public void testValidateState_WhenLoanDueDatePassed_SetsArticleAndLoanStateAccordingly() {
 		loan.setState(LoanState.ACTIVE);
 		long millis = System.currentTimeMillis();
 		Date today = new Date(millis);
 		loan.setDueDate(Date.valueOf(today.toLocalDate().plusDays(-1)));
 		
-		Loan.validateState(loan);
+		loan.validateState();
 		
 		assertEquals(ArticleState.UNAVAILABLE, loan.getArticleOnLoan().getState());
 		assertEquals(LoanState.OVERDUE, loan.getState());
 	}
 	
 	@Test
-	public void testValidateStateWhenBookingEndDateNotPassed() {
+	public void testValidateState_WhenBookingEndDateNotPassed_DoesNotChangeState() {
 		loan.setState(LoanState.ACTIVE);
 		long millis = System.currentTimeMillis();
 		Date today = new Date(millis);
 		loan.setDueDate(Date.valueOf(today.toLocalDate().plusDays(1)));
 		loan.getArticleOnLoan().setState(ArticleState.ONLOAN);
 		
-		Loan.validateState(loan);
+		loan.validateState();
 		
 		assertEquals(ArticleState.ONLOAN, loan.getArticleOnLoan().getState());
+		assertEquals(LoanState.ACTIVE, loan.getState());
 	}
 
 }

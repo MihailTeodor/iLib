@@ -30,27 +30,27 @@ public class BookingTest {
 	}
 	
 	@Test
-	public void testValidateStateWhenBookingStateIsNotActive() {
+	public void testValidateState_WhenBookingStateIsNotActive_ThrowsIllegalArgumentException() {
 		booking.setState(BookingState.COMPLETED);
 		long millis = System.currentTimeMillis();
 		Date today = new Date(millis);
 		booking.setBookingEndDate(Date.valueOf(today.toLocalDate().plusDays(1)));
 
 		Exception thrownException = assertThrows(IllegalArgumentException.class, () -> {
-			Booking.validateState(booking);
+			booking.validateState();
 		});
 		assertEquals("The Booking state is not ACTIVE!", thrownException.getMessage());
 	}
 	
 	@Test
-	public void testValidateStateWhenBookingEndDatePassed() {
+	public void testValidateState_WhenBookingEndDatePassed_ChangesArticleAndBookingStateAccordingly() {
 		booking.setState(BookingState.ACTIVE);
 		long millis = System.currentTimeMillis();
 		Date today = new Date(millis);
 		booking.setBookingEndDate(Date.valueOf(today.toLocalDate().plusDays(-1)));
 		
 		try {
-			Booking.validateState(booking);
+			booking.validateState();
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -60,7 +60,7 @@ public class BookingTest {
 	}
 	
 	@Test
-	public void testValidateStateWhenBookingEndDateNotPassed() {
+	public void testValidateState_WhenBookingEndDateNotPassed_DoesNotChangeState() {
 		booking.setState(BookingState.ACTIVE);
 		long millis = System.currentTimeMillis();
 		Date today = new Date(millis);
@@ -68,11 +68,13 @@ public class BookingTest {
 		booking.getBookedArticle().setState(ArticleState.BOOKED);
 		
 		try {
-			Booking.validateState(booking);
+			booking.validateState();
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
 		
 		assertEquals(ArticleState.BOOKED, booking.getBookedArticle().getState());
+		assertEquals(BookingState.ACTIVE, booking.getState());
+
 	}
 }

@@ -91,11 +91,12 @@ public class UserDaoTest extends JPATest{
 	}
 
 	@Test
-	public void testDeleteNonExistingUser() {
+	public void testDelete_WhenUserNotExist_ThrowsIllegalArgumentException() {
 		User tmpUser = ModelFactory.user();
-		assertThrows(IllegalArgumentException.class, ()->{
-			userDao.delete(tmpUser);
+		Exception thrownException = assertThrows(IllegalArgumentException.class, ()->{
+			userDao.delete(tmpUser);			
 		});
+		assertEquals("Entity is not persisted!", thrownException.getMessage());	
 	}
 
 	@Test

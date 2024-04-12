@@ -1,4 +1,4 @@
-package it.gurzu.SWAM.iLib.DaoTest;
+package it.gurzu.SWAM.iLib.daoTest;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;

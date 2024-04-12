@@ -12,29 +12,26 @@ public class ArticleDao extends BaseDao<Article> {
 	public ArticleDao() {
 		super(Article.class);
 	}
-		
-	public List<Article> findArticlesByTitle(String title){
-		return this.em.createQuery("FROM Article where title = :title", Article.class)
-			.setParameter("title", title)
-			.getResultList();
-	}
-	
-	public List<Article> findArticlesByGenre(String genre){
-		return this.em.createQuery("FROM Article where genre = :genre", Article.class)
-			.setParameter("genre", genre)
-			.getResultList();
-	}
-	
-	public List<Article> findArticlesByPublisher(String publisher){
-		return this.em.createQuery("FROM Article where publisher = :publisher", Article.class)
-			.setParameter("publisher", publisher)
-			.getResultList();
+			
+	public List<Article> findArticles(String title, String genre, String publisher, Date yearEdition, String author, Integer issueNumber, String director ){
+		return this.em.createQuery(
+				"FROM Article a WHERE "
+				+ "(:title is null or a.title = :title) and "
+				+ "(:genre is null or a.genre = :genre) and"
+				+ "(:publisher is null or a.publisher = :publisher) and"
+				+ "(:yearEdition is null or a.yearEdition = :yearEdition) and"
+				+ "(:author is null or a.author = :author) and"
+				+ "(:issueNumber is null or a.issueNumber = :issueNumber) and"
+				+ "(:director is null or a.director = :director)", Article.class)
+				.setParameter("title", title)
+				.setParameter("genre", genre)
+				.setParameter("publisher", publisher)
+				.setParameter("yearEdition", yearEdition)
+				.setParameter("author", author)
+				.setParameter("issueNumber", issueNumber)
+				.setParameter("director", director)
+				.getResultList();
 	}
 
-	public List<Article> findArticlesByYearEdition(String yearEdition){
-		return this.em.createQuery("FROM Article where yearEdition = :yearEdition", Article.class)
-			.setParameter("yearEdition", Date.valueOf(yearEdition))
-			.getResultList();
-	}
 
 }

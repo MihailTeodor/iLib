@@ -1,8 +1,11 @@
 package it.gurzu.SWAM.iLib.modelTest;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import java.util.UUID;
 
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -20,14 +23,15 @@ public class BaseEntityTest {
 	
 	@Test
 	public void testNullUUID() {
-		Assertions.assertThrows(IllegalArgumentException.class, ()->{
+		Exception thrownException = assertThrows(IllegalArgumentException.class, ()->{
 			new FakeBaseEntity(null);
 		});
+		assertEquals("uuid cannot be null!", thrownException.getMessage());	
 	}
 	
 	@Test
 	public void testEquals() {
-		Assertions.assertEquals(entity1, entity1);
-		Assertions.assertNotEquals(entity1, entity2);
+		assertEquals(entity1, entity1);
+		assertNotEquals(entity1, entity2);
 	}
 }

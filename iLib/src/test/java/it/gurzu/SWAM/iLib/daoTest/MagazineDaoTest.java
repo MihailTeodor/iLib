@@ -1,9 +1,10 @@
-package it.gurzu.SWAM.iLib.DaoTest;
+package it.gurzu.SWAM.iLib.daoTest;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
 
 import org.apache.commons.lang3.reflect.FieldUtils;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import it.gurzu.swam.iLib.dao.MagazineDao;
@@ -26,19 +27,12 @@ public class MagazineDaoTest extends JPATest {
 		magazineDao = new MagazineDao();
 		FieldUtils.writeField(magazineDao, "em", em, true); 
 	}
-
-	@Test
-	public void testFindMagazinesByIssueNumber() {
-		List<Magazine> retrievedMagazines = magazineDao.findMagazineByIssueNumber("3");
-		Assertions.assertEquals(1, retrievedMagazines.size());
-		Assertions.assertEquals(true, retrievedMagazines.contains(magazine));
- 	}
 	
 	@Test
 	public void testFindMagazinesByIssn() {
 		List<Magazine> retrievedMagazines = magazineDao.findMagazinesByIssn("1234567");
-		Assertions.assertEquals(1, retrievedMagazines.size());
-		Assertions.assertEquals(true, retrievedMagazines.contains(magazine));
+		assertEquals(1, retrievedMagazines.size());
+		assertEquals(true, retrievedMagazines.contains(magazine));
 	}
 
 	

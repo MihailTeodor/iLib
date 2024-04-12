@@ -20,7 +20,7 @@ public abstract class Article extends BaseEntity {
 	private String description;
 	
 	@Enumerated(EnumType.STRING)
-	private State state;
+	private ArticleState state;
 	
 	Article(){ }
 	
@@ -76,11 +76,11 @@ public abstract class Article extends BaseEntity {
 		this.description = description;
 	}
 	
-	public State getState() {
+	public ArticleState getState() {
 		return state;
 	}
 	
-	public void setState(State state) {
+	public void setState(ArticleState state) {
 		this.state = state;
 	}
 	

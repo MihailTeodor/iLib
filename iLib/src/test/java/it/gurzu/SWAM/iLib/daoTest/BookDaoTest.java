@@ -1,9 +1,10 @@
-package it.gurzu.SWAM.iLib.DaoTest;
+package it.gurzu.SWAM.iLib.daoTest;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
 
 import org.apache.commons.lang3.reflect.FieldUtils;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import it.gurzu.swam.iLib.dao.BookDao;
@@ -18,7 +19,6 @@ public class BookDaoTest extends JPATest {
 	@Override
 	protected void init() throws IllegalAccessException {
 		book = ModelFactory.book();
-		book.setAuthor("King");
 		book.setIsbn("1234567");
 		
 		em.persist(book);
@@ -26,18 +26,11 @@ public class BookDaoTest extends JPATest {
 		bookDao = new BookDao();
 		FieldUtils.writeField(bookDao, "em", em, true); 
 	}
-
-	@Test
-	public void testFindBookByAuthor() {
-		List<Book> retrievedBooks = bookDao.findBooksByAuthor("King");
-		Assertions.assertEquals(1, retrievedBooks.size());
-		Assertions.assertEquals(true, retrievedBooks.contains(book));
-	}
 	
 	@Test
 	public void testFindBookByIsbn() {
 		List<Book> retrievedBooks = bookDao.findBooksByIsbn("1234567");
-		Assertions.assertEquals(1, retrievedBooks.size());
-		Assertions.assertEquals(true, retrievedBooks.contains(book));
+		assertEquals(1, retrievedBooks.size());
+		assertEquals(true, retrievedBooks.contains(book));
 	}
 }

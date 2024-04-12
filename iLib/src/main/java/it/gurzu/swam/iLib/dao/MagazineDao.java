@@ -12,12 +12,6 @@ public class MagazineDao extends BaseDao<Magazine> {
 		super(Magazine.class);
 	}
 	
-	public List<Magazine> findMagazineByIssueNumber(String issueNumber) {
-		return this.em.createQuery("FROM Magazine where issueNumber = :issueNumber", Magazine.class)
-				.setParameter("issueNumber", issueNumber)
-				.getResultList();		
-	}
-
 	public List<Magazine> findMagazinesByIssn(String issn) {
 		return this.em.createQuery("FROM Magazine where issn = :issn", Magazine.class)
 				.setParameter("issn", issn)

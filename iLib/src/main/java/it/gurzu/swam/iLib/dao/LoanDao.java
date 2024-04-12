@@ -26,16 +26,13 @@ public class LoanDao extends BaseDao<Loan> {
 				.getSingleResult();
 	}
 	
-    public List<Loan> findLoansByUser(User user) {
-        return this.em.createQuery("SELECT l FROM Loan l WHERE l.loaningUser = :user", Loan.class)
-                .setParameter("user", user)
-                .getResultList();
+    public List<Loan> searchLoans(User loaningUser, Article articleOnLoan) {
+    	return this.em.createQuery("SELECT l FROM Loan l WHERE"
+    			+ "(:loaningUser is null or l.loaningUser = :loaningUser) and"
+    			+ "(:articleOnLoan is null or l.articleOnLoan = :articleOnLoan)"
+    			+ "ORDER BY l.state, l.dueDate DESC", Loan.class)
+    			.setParameter("loaningUser", loaningUser)
+    			.setParameter("articleOnLoan", articleOnLoan)
+    			.getResultList();
     }
-
-    public List<Loan> findLoansByArticle(Article article) {
-        return this.em.createQuery("SELECT l FROM Loan l WHERE l.articleOnLoan = :article", Loan.class)
-                .setParameter("article", article)
-                .getResultList();
-    }
-
 }

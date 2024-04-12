@@ -12,12 +12,6 @@ public class MovieDVDDao extends BaseDao<MovieDVD> {
 		super(MovieDVD.class);
 	}
 	
-	public List<MovieDVD> findMoviesByDirector(String director) {
-		return this.em.createQuery("FROM MovieDVD where director = :director", MovieDVD.class)
-				.setParameter("director", director)
-				.getResultList();		
-	}
-
 	public List<MovieDVD> findMoviesByIsan(String isan) {
 		return this.em.createQuery("FROM MovieDVD where isan = :isan", MovieDVD.class)
 				.setParameter("isan", isan)

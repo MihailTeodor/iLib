@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import it.gurzu.swam.iLib.Utils.PasswordUtils;
 import it.gurzu.swam.iLib.dao.UserDao;
 import it.gurzu.swam.iLib.exceptions.SearchHasGivenNoResultsException;
 import it.gurzu.swam.iLib.exceptions.UserDoesNotExistException;
@@ -19,11 +20,11 @@ public class UserController {
 	@Inject
 	private UserDao userDao;
 	
-	public void addUser(String email, String password, String name, String surname, String address, String telephoneNumber) {
+	public void addUser(String email, String plainPassword, String name, String surname, String address, String telephoneNumber) {
 		if(email == null)
 			throw new IllegalArgumentException("Email missing!");
 		
-		if(password == null)
+		if(plainPassword == null)
 			throw new IllegalArgumentException("Password missing!");
 		
 		User tmpUser = userDao.findUsersByEmail(email); 
@@ -35,7 +36,7 @@ public class UserController {
 		userToAdd.setName(name);
 		userToAdd.setSurname(surname);
 		userToAdd.setEmail(email);
-		userToAdd.setPassword(password);
+		userToAdd.setPassword(PasswordUtils.hashPassword(plainPassword));
 		userToAdd.setAddress(address);
 		userToAdd.setTelephoneNumber(telephoneNumber);
 		userToAdd.setRole(UserRole.CITIZEN);
@@ -43,7 +44,7 @@ public class UserController {
 		userDao.save(userToAdd);
 	}
 	
-	public void updateUser(Long userId, String name, String surname, String email, String password, String address, String telephoneNumber) {
+	public void updateUser(Long userId, String name, String surname, String email, String plainPassword, String address, String telephoneNumber) {
 		User userToUpdate = userDao.findById(userId);
 		
 		if(userToUpdate == null)
@@ -52,7 +53,7 @@ public class UserController {
 		userToUpdate.setName(name);
 		userToUpdate.setSurname(surname);
 		userToUpdate.setEmail(email);
-		userToUpdate.setPassword(password);
+		userToUpdate.setPassword(PasswordUtils.hashPassword(plainPassword));
 		userToUpdate.setAddress(address);
 		userToUpdate.setTelephoneNumber(telephoneNumber);
 		
@@ -64,8 +65,6 @@ public class UserController {
 		
 		if(user == null)
 			throw new UserDoesNotExistException("User does not exist!");
-		
-		user.setPassword(null);
 		return user;
 	}
 

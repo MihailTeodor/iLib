@@ -2,6 +2,7 @@ package it.gurzu.SWAM.iLib.controllerTest;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -13,13 +14,17 @@ import java.util.List;
 import org.apache.commons.lang3.reflect.FieldUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import it.gurzu.swam.iLib.controllers.UserController;
 import it.gurzu.swam.iLib.dao.UserDao;
 import it.gurzu.swam.iLib.exceptions.SearchHasGivenNoResultsException;
 import it.gurzu.swam.iLib.exceptions.UserDoesNotExistException;
+import it.gurzu.swam.iLib.model.ModelFactory;
 import it.gurzu.swam.iLib.model.User;
+import it.gurzu.swam.iLib.model.UserRole;
 
 public class UserControllerTest {
 	private UserController userController;
@@ -67,8 +72,26 @@ public class UserControllerTest {
 	public void testAddUserSuccessful() {
 		when(userDaoMock.findUsersByEmail("inexistingEmail")).thenReturn(null);
 		
-		userController.addUser("inexistingEmail", "password", null, null, null, null);
-		verify(userDaoMock).save(Mockito.any(User.class));
+	    String name = "Mihail";
+	    String surname = "Gurzu";
+	    String email = "mihail.gurzu@edu.unifi.it";
+	    String plainPassword = "password123";
+	    String address = "indirizzo";
+	    String telephoneNumber = "1234567890";
+
+	    userController.addUser(email, plainPassword, name, surname,  address, telephoneNumber);
+	    
+	    ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+	    verify(userDaoMock).save(userCaptor.capture());
+	    
+	    User savedUser = userCaptor.getValue();
+	    assertEquals(name, savedUser.getName());
+	    assertEquals(surname, savedUser.getSurname());
+	    assertEquals(email, savedUser.getEmail());
+	    assertTrue(new BCryptPasswordEncoder().matches("password123", savedUser.getPassword()));
+	    assertEquals(address, savedUser.getAddress());
+	    assertEquals(telephoneNumber, savedUser.getTelephoneNumber());
+	    assertEquals(UserRole.CITIZEN, savedUser.getRole());
 	}
 	
 	@Test
@@ -83,11 +106,35 @@ public class UserControllerTest {
 
 	@Test
 	public void testUpdateUser_WhenUserDoesExist() {
-		when(userDaoMock.findById(1L)).thenReturn(userMock);
-		
-		userController.updateUser(1L, null, null, null, null, null, null);
-		
-		verify(userDaoMock).save(userMock);
+	    String updatedName = "Updated Mihail";
+	    String updatedSurname = "Updated Gurzu";
+	    String updatedEmail = "updated.mihail.gurzu@edu.unifi.it";
+	    String newPlainPassword = "newPassword123";
+	    String updatedAddress = "updated indirizzo";
+	    String updatedTelephoneNumber = "0987654321";
+
+	    User existingUser = ModelFactory.user();
+	    existingUser.setName("Mihail");
+	    existingUser.setSurname("Gurzu");
+	    existingUser.setEmail("mihail.gurzu@edu.unifi.it");
+	    existingUser.setPassword("oldHashedPassword");
+	    existingUser.setAddress("indirizzo");
+	    existingUser.setTelephoneNumber("1234567890");
+
+	    when(userDaoMock.findById(1L)).thenReturn(existingUser);
+
+	    userController.updateUser(1L, updatedName, updatedSurname, updatedEmail, newPlainPassword, updatedAddress, updatedTelephoneNumber);
+
+	    ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+	    verify(userDaoMock).save(userCaptor.capture());
+
+	    User savedUser = userCaptor.getValue();
+	    assertEquals(updatedName, savedUser.getName());
+	    assertEquals(updatedSurname, savedUser.getSurname());
+	    assertEquals(updatedEmail, savedUser.getEmail());
+	    assertTrue(new BCryptPasswordEncoder().matches(newPlainPassword, savedUser.getPassword()));
+	    assertEquals(updatedAddress, savedUser.getAddress());
+	    assertEquals(updatedTelephoneNumber, savedUser.getTelephoneNumber());
 	}
 	
 	@Test
@@ -108,7 +155,6 @@ public class UserControllerTest {
 		User retrievedUser = userController.getUserInfo(1L);
 		
 		assertEquals(userMock, retrievedUser);
-		assertEquals(null, retrievedUser.getPassword());
 	}
 	
 	@Test

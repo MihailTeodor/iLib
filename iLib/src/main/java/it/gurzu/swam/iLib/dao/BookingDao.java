@@ -26,13 +26,25 @@ public class BookingDao extends BaseDao<Booking> {
 				.getSingleResult();
 	}
 	    
-    public List<Booking> searchBookings(User bookingUser, Article bookedArticle) {
+    public List<Booking> searchBookings(User bookingUser, Article bookedArticle, int fromIndex, int limit) {
     	return this.em.createQuery("SELECT b FROM Booking b WHERE"
     			+ "(:bookedArticle is null or bookedArticle = :bookedArticle) and"
     			+ "(:bookingUser is null or bookingUser = :bookingUser)"
     			+ "ORDER BY b.state, b.bookingEndDate DESC", Booking.class)
     			.setParameter("bookedArticle", bookedArticle)
     			.setParameter("bookingUser", bookingUser)
+    			.setFirstResult(fromIndex)
+    			.setMaxResults(limit)
     			.getResultList();
     }
+
+    public Long countBookings(User bookingUser, Article bookedArticle) {
+    	return this.em.createQuery("SELECT COUNT(b) FROM Booking b WHERE"
+    			+ "(:bookedArticle is null or bookedArticle = :bookedArticle) and"
+    			+ "(:bookingUser is null or bookingUser = :bookingUser)", Long.class)
+    			.setParameter("bookedArticle", bookedArticle)
+    			.setParameter("bookingUser", bookingUser)
+				.getSingleResult();
+    }
+
 }

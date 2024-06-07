@@ -1,6 +1,6 @@
 package it.gurzu.swam.iLib.model;
 
-import java.sql.Date;
+import java.time.LocalDate;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -14,7 +14,7 @@ public abstract class Article extends BaseEntity {
 
 	private String location;
 	private String title;
-	private Date yearEdition;
+	private LocalDate yearEdition;
 	private String publisher;
 	private String genre;
 	private String description;
@@ -44,12 +44,12 @@ public abstract class Article extends BaseEntity {
 		this.title = title;
 	}
 	
-	public Date getYearEdition() {
+	public LocalDate getYearEdition() {
 		return yearEdition;
 	}
 	
-	public void setYearEdition(Date yearEdition) {
-		this.yearEdition = yearEdition;
+	public void setYearEdition(LocalDate yearEdition2) {
+		this.yearEdition = yearEdition2;
 	}
 	
 	public String getPublisher() {

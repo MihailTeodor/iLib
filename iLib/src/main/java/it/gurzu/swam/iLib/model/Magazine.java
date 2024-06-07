@@ -2,12 +2,15 @@ package it.gurzu.swam.iLib.model;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.NotNull;
 
 @Entity
 @Table(name = "magazines")
 public class Magazine extends Article {
 
+	@NotNull
 	private int issueNumber;
+	@NotNull
 	private String issn;
 
 	Magazine() { }

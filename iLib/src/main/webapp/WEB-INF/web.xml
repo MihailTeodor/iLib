@@ -9,4 +9,19 @@
 		<welcome-file>default.htm</welcome-file>
 		<welcome-file>default.jsp</welcome-file>
 	</welcome-file-list>
+	
+	
+	<context-param>
+		<param-name>resteasy.role.based.security</param-name>
+		<param-value>true</param-value>
+	</context-param>
+	
+	<security-role>
+		<role-name>ADMINISTRATOR</role-name>
+	</security-role>
+
+	<security-role>
+		<role-name>CITIZEN</role-name>
+	</security-role>
+
 </web-app>

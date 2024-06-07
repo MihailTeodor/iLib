@@ -35,6 +35,24 @@ public class MagazineDaoTest extends JPATest {
 		assertEquals(true, retrievedMagazines.contains(magazine));
 	}
 
-	
+	@Test
+	public void testCountMagazinesByIssn() {
+		Magazine magazine2 = ModelFactory.magazine();
+		magazine2.setIssueNumber(3);
+		magazine2.setIssn("1234567");
+		
+		em.persist(magazine2);
+
+		Magazine magazine3 = ModelFactory.magazine();
+		magazine3.setIssueNumber(3);
+		magazine3.setIssn("1234567");
+		
+		em.persist(magazine3);
+		
+		Long resultsNumber = magazineDao.countMagazinesByIssn("1234567");
+		
+		assertEquals(3, resultsNumber);
+
+	}
 	
 }

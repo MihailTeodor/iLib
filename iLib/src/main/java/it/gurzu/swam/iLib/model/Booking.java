@@ -1,26 +1,31 @@
 package it.gurzu.swam.iLib.model;
 
-import java.sql.Date;
+import java.time.LocalDate;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Temporal;
+import jakarta.persistence.TemporalType;
 
 @Entity
 @Table(name = "bookings")
 public class Booking extends BaseEntity {
 
-	@ManyToOne
+	@ManyToOne(fetch = FetchType.EAGER) 
 	private Article bookedArticle;
 	
-	@ManyToOne 
+	@ManyToOne(fetch = FetchType.EAGER) 
 	private User bookingUser;
 	
-	private Date bookingDate;
+	@Temporal(value = TemporalType.DATE)
+	private LocalDate bookingDate;
 	
-	private Date bookingEndDate; 
+	@Temporal(value = TemporalType.DATE)
+	private LocalDate bookingEndDate; 
 	
 	@Enumerated(EnumType.STRING)
 	private BookingState state;
@@ -47,19 +52,19 @@ public class Booking extends BaseEntity {
 		this.bookingUser = bookingUser;
 	}
 	
-	public Date getBookingEndDate() {
+	public LocalDate getBookingEndDate() {
 		return bookingEndDate;
 	}
 	
-	public void setBookingEndDate(Date bookingEndDate) {
+	public void setBookingEndDate(LocalDate bookingEndDate) {
 		this.bookingEndDate = bookingEndDate;
 	}
 	
-	public Date getBookingDate() {
+	public LocalDate getBookingDate() {
 		return bookingDate;
 	}
 
-	public void setBookingDate(Date bookingDate) {
+	public void setBookingDate(LocalDate bookingDate) {
 		this.bookingDate = bookingDate;
 	}
 	
@@ -79,10 +84,8 @@ public class Booking extends BaseEntity {
 	 */
 	public void validateState() {
 		if(this.state == BookingState.ACTIVE) {
-			long millis = System.currentTimeMillis();
-			Date today = new Date(millis);
-			int comparisonResult = this.getBookingEndDate().compareTo(today); 
-			if(comparisonResult < 0) {
+			LocalDate today = LocalDate.now();
+			if(this.getBookingEndDate().isBefore(today)) {
 				this.getBookedArticle().setState(ArticleState.AVAILABLE);
 				this.setState(BookingState.CANCELLED);
 			}			

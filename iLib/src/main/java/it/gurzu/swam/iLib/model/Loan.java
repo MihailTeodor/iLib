@@ -1,25 +1,34 @@
 package it.gurzu.swam.iLib.model;
 
-import java.sql.Date;
+import java.time.LocalDate;
 
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Temporal;
+import jakarta.persistence.TemporalType;
 
 @Entity
 @Table(name = "loans")
 public class Loan extends BaseEntity {
 
-	@ManyToOne
+	@ManyToOne(fetch = FetchType.EAGER) 
 	private Article articleOnLoan;
 	
-	@ManyToOne
+	@ManyToOne(fetch = FetchType.EAGER) 
 	private User loaningUser;
 	
-	private Date loanDate;
-	private Date dueDate;
+	@Temporal(value = TemporalType.DATE)
+	private LocalDate loanDate;
+	
+	@Temporal(value = TemporalType.DATE)
+	private LocalDate dueDate;
 	private boolean renewed;
 	
+	@Enumerated(EnumType.STRING)
 	private LoanState state;
 
 	Loan() { }
@@ -44,11 +53,11 @@ public class Loan extends BaseEntity {
 		this.loaningUser = loaningUser;
 	}
 		
-	public Date getDueDate() {
+	public LocalDate getDueDate() {
 		return dueDate;
 	}
 	
-	public void setDueDate(Date dueDate) {
+	public void setDueDate(LocalDate dueDate) {
 		this.dueDate = dueDate;
 	}
 	
@@ -60,11 +69,11 @@ public class Loan extends BaseEntity {
 		this.renewed = renewed;
 	}
 	
-	public Date getLoanDate() {
+	public LocalDate getLoanDate() {
 		return loanDate;
 	}
 
-	public void setLoanDate(Date loanDate) {
+	public void setLoanDate(LocalDate loanDate) {
 		this.loanDate = loanDate;
 	}
 
@@ -84,10 +93,8 @@ public class Loan extends BaseEntity {
 	 */
 	public void validateState() {
 		if(this.getState() == LoanState.ACTIVE) {
-			long millis = System.currentTimeMillis();
-			Date today = new Date(millis);
-			int comparizonResult = this.getDueDate().compareTo(today);
-			if(comparizonResult < 0) {
+			LocalDate today = LocalDate.now();
+			if(this.getDueDate().isBefore(today)) {
 				this.getArticleOnLoan().setState(ArticleState.UNAVAILABLE);
 				this.setState(LoanState.OVERDUE);
 			}			

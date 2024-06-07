@@ -1,0 +1,11 @@
+{
+	"rest": {
+		"baseURI": "http://localhost/",
+		"port": 8080
+	},
+	"DB": {
+		"connectionURL": "jdbc:mysql://localhost:3306/iLib_test?serverTimezone=UTC",
+		"username": "test-client",
+		"password": "test"
+	}
+}

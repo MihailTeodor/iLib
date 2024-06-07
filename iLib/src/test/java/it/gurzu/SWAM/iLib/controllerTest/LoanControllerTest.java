@@ -10,7 +10,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.sql.Date;
 import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
@@ -27,6 +26,7 @@ import it.gurzu.swam.iLib.dao.ArticleDao;
 import it.gurzu.swam.iLib.dao.BookingDao;
 import it.gurzu.swam.iLib.dao.LoanDao;
 import it.gurzu.swam.iLib.dao.UserDao;
+import it.gurzu.swam.iLib.dto.LoanDTO;
 import it.gurzu.swam.iLib.exceptions.ArticleDoesNotExistException;
 import it.gurzu.swam.iLib.exceptions.InvalidOperationException;
 import it.gurzu.swam.iLib.exceptions.LoanDoesNotExistException;
@@ -64,26 +64,6 @@ public class LoanControllerTest {
 	
 	
 	@Test
-	public void testRegisterLoan_WhenUserIdIsNull_ThrowsIllegalArgumentException() {
-		Exception thrownException = assertThrows(IllegalArgumentException.class, ()->{
-			loanController.registerLoan(null, 1L);
-			
-		});
-		assertEquals("Cannot register Loan, User not specified!", thrownException.getMessage());	
-	}
-
-	
-	@Test
-	public void testRegisterLoan_WhenArticleIdIsNull_ThrowsIllegalArgumentException() {
-		Exception thrownException = assertThrows(IllegalArgumentException.class, ()->{
-			loanController.registerLoan(1L, null);
-			
-		});
-		assertEquals("Cannot register Loan, Article not specified!", thrownException.getMessage());	
-	}
-	
-	
-	@Test
 	public void testRegisterLoan_WhenUserDoesNotExist_ThrowsUserDoesNotExistException() {
 		Article mockArticle = mock(Article.class);
 		when(userDaoMock.findById(1L)).thenReturn(null);
@@ -112,7 +92,7 @@ public class LoanControllerTest {
 	
 	
 	@Test
-	public void testregisterLoan_WhenArticleBookedByAnotherUser_ThrowsInvalidOperationException() {
+	public void testRegisterLoan_WhenArticleBookedByAnotherUser_ThrowsInvalidOperationException() {
 	    User mockUser = mock(User.class);
 	    User mockOtherUser = mock(User.class);
 	    Article article = mock(Article.class);
@@ -122,7 +102,7 @@ public class LoanControllerTest {
 	    when(userDaoMock.findById(1L)).thenReturn(mockUser);
 	    when(articleDaoMock.findById(1L)).thenReturn(article);
 	    when(article.getState()).thenReturn(ArticleState.BOOKED);
-	    when(bookingDaoMock.searchBookings(null, article)).thenReturn(List.of(booking));
+	    when(bookingDaoMock.searchBookings(null, article, 0, 1)).thenReturn(List.of(booking));
 
 		Exception thrownException = assertThrows(InvalidOperationException.class, ()->{
 			loanController.registerLoan(1L, 1L);
@@ -163,23 +143,24 @@ public class LoanControllerTest {
 	    when(articleDaoMock.findById(1L)).thenReturn(mockArticle);
 	    when(mockBooking.getBookingUser()).thenReturn(mockUser);
 	    when(mockArticle.getState()).thenReturn(ArticleState.BOOKED);
-	    when(bookingDaoMock.searchBookings(null, mockArticle)).thenReturn(List.of(mockBooking));
+	    when(bookingDaoMock.searchBookings(null, mockArticle, 0, 1)).thenReturn(List.of(mockBooking));
 
 	    ArgumentCaptor<Loan> loanCaptor = ArgumentCaptor.forClass(Loan.class);
 	    
-	    loanController.registerLoan(1L, 1L);
+	    Long returnedId = loanController.registerLoan(1L, 1L);
 	    
 	    verify(loanDaoMock).save(loanCaptor.capture());
 	    Loan capturedLoan = loanCaptor.getValue();
 	    
 	    verify(mockArticle).setState(ArticleState.ONLOAN);
+	    assertEquals(returnedId, capturedLoan.getId());
 	    assertEquals(mockUser, capturedLoan.getLoaningUser());
 	    assertEquals(mockArticle, capturedLoan.getArticleOnLoan());
-	    assertEquals(today, capturedLoan.getLoanDate().toLocalDate());
-	    assertEquals(Date.valueOf(today.plusMonths(1)), capturedLoan.getDueDate());
+	    assertEquals(today, capturedLoan.getLoanDate());
+	    assertEquals(today.plusMonths(1), capturedLoan.getDueDate());
 	    assertFalse(capturedLoan.isRenewed());
 	    assertEquals(LoanState.ACTIVE, capturedLoan.getState());
-	    assertEquals(today.plusMonths(1), capturedLoan.getDueDate().toLocalDate());
+	    assertEquals(today.plusMonths(1), capturedLoan.getDueDate());
 	}
 	
 	
@@ -238,12 +219,12 @@ public class LoanControllerTest {
 	    when(mockLoan.getState()).thenReturn(LoanState.ACTIVE);
 	    when(mockLoan.getArticleOnLoan()).thenReturn(mockArticle);
 	    when(mockArticle.getState()).thenReturn(ArticleState.ONLOANBOOKED);
-	    when(bookingDaoMock.searchBookings(null, mockArticle)).thenReturn(List.of(mockBooking));
+	    when(bookingDaoMock.searchBookings(null, mockArticle, 0, 1)).thenReturn(List.of(mockBooking));
 
 	    loanController.registerReturn(loanId);
 
 	    verify(mockArticle).setState(ArticleState.BOOKED);
-	    verify(mockBooking).setBookingEndDate(Date.valueOf(today.plusDays(3)));
+	    verify(mockBooking).setBookingEndDate(today.plusDays(3));
 	    verify(mockLoan).setState(LoanState.RETURNED);
 	}
 	
@@ -263,38 +244,86 @@ public class LoanControllerTest {
 	
 	@ParameterizedTest
 	@EnumSource(value = LoanState.class, names = {"RETURNED", "OVERDUE"})
-	public void testGetLoanInfo_WhenLoanNotActive(LoanState state) {
+	public void testGetLoanInfo_WhenLoanNotActive_DoesNotCallValidateState(LoanState state) {
 	    Loan mockLoan = mock(Loan.class);
+    	Article mockArticle = mock(Article.class);
+    	User mockUser = mock(User.class);
+
+    	when(mockArticle.getId()).thenReturn(3L);
+    	when(mockUser.getId()).thenReturn(5L);
+
+    	when(mockLoan.getArticleOnLoan()).thenReturn(mockArticle);
+    	when(mockLoan.getLoaningUser()).thenReturn(mockUser);
+
 	    when(mockLoan.getState()).thenReturn(state);
 	    when(loanDaoMock.findById(1L)).thenReturn(mockLoan);
 
-	    Loan loan = loanController.getLoanInfo(1L);
-	    assertNotNull(loan);
-	    assertEquals(mockLoan, loan);
+	    loanController.getLoanInfo(1L);
+	    
 	    verify(mockLoan, never()).validateState();
 	}
 	
 	
 	@Test
 	public void testGetLoanInfo_WhenLoanActive_ThenCallsValidateState() {
-		Long loanId = 3L;
 		Loan mockLoan = mock(Loan.class);
-		when(mockLoan.getState()).thenReturn(LoanState.ACTIVE);
-		when(loanDaoMock.findById(loanId)).thenReturn(mockLoan);
+    	Article mockArticle = mock(Article.class);
+    	User mockUser = mock(User.class);
 
-		Loan loan = loanController.getLoanInfo(loanId);
-		assertNotNull(loan);
-		assertEquals(mockLoan, loan);
+    	when(mockArticle.getId()).thenReturn(3L);
+    	when(mockUser.getId()).thenReturn(5L);
+
+    	when(mockLoan.getArticleOnLoan()).thenReturn(mockArticle);
+    	when(mockLoan.getLoaningUser()).thenReturn(mockUser);
+
+		when(mockLoan.getState()).thenReturn(LoanState.ACTIVE);
+		when(loanDaoMock.findById(1L)).thenReturn(mockLoan);
+
+		loanController.getLoanInfo(1L);
+		
 		verify(mockLoan).validateState();		
 	}
 	
+	
+	@Test
+	public void testGetLoanInfo_ReturnsCorrectDTO() {
+		Loan mockLoan = mock(Loan.class);
+    	Article mockArticle = mock(Article.class);
+    	User mockUser = mock(User.class);
+		
+    	when(mockArticle.getId()).thenReturn(3L);
+    	when(mockArticle.getTitle()).thenReturn("a title");
+    	
+    	when(mockUser.getId()).thenReturn(5L);
+
+    	when(mockLoan.getId()).thenReturn(1L);
+    	when(mockLoan.getState()).thenReturn(LoanState.ACTIVE);
+    	when(mockLoan.getArticleOnLoan()).thenReturn(mockArticle);
+    	when(mockLoan.getLoaningUser()).thenReturn(mockUser);
+    	when(mockLoan.getLoanDate()).thenReturn(today);
+    	when(mockLoan.getDueDate()).thenReturn(today.plusMonths(1));
+    	when(mockLoan.isRenewed()).thenReturn(true);
+    	when(loanDaoMock.findById(1L)).thenReturn(mockLoan);
+
+    	LoanDTO loanDTO = loanController.getLoanInfo(1L);
+    	
+    	assertNotNull(loanDTO);
+    	assertEquals(loanDTO.getId(), mockLoan.getId());
+    	assertEquals(loanDTO.getState(), mockLoan.getState());
+    	assertEquals(loanDTO.getArticleId(), mockLoan.getArticleOnLoan().getId());
+    	assertEquals(loanDTO.getArticleTitle(), mockLoan.getArticleOnLoan().getTitle());
+    	assertEquals(loanDTO.getLoaningUserId(), mockLoan.getLoaningUser().getId());
+    	assertEquals(loanDTO.getLoanDate(), mockLoan.getLoanDate());
+    	assertEquals(loanDTO.getDueDate(), mockLoan.getDueDate());
+    	assertEquals(loanDTO.isRenewed(), mockLoan.isRenewed());
+	}
 	
 	@Test
 	public void testGetLoansByUser_WhenUserDoesNotExist_ThrowsUserDoesNotExistException() {
 		when(userDaoMock.findById(1L)).thenReturn(null);
 		
 		Exception thrownException = assertThrows(UserDoesNotExistException.class, ()->{
-			loanController.getLoansByUser(1L);
+			loanController.getLoansByUser(1L, 0, 0);
 			
 		});
 		assertEquals("Specified user is not registered in the system!", thrownException.getMessage());					
@@ -305,10 +334,10 @@ public class LoanControllerTest {
 	public void testGetLoansByUser_WhenUserHasNoLoans_ThrowsLoanDoesNotExistException() {
 		User mockUser = mock(User.class);
 		when(userDaoMock.findById(1L)).thenReturn(mockUser);
-		when(loanDaoMock.searchLoans(mockUser, null)).thenReturn(Collections.emptyList());
+		when(loanDaoMock.searchLoans(mockUser, null, 0, 0)).thenReturn(Collections.emptyList());
 		
 		Exception thrownException = assertThrows(LoanDoesNotExistException.class, ()->{
-			loanController.getLoansByUser(1L);
+			loanController.getLoansByUser(1L, 0, 0);
 			
 		});
 		assertEquals("No loans relative to the specified user found!", thrownException.getMessage());					
@@ -323,12 +352,12 @@ public class LoanControllerTest {
 	    Loan returnedLoan = mock(Loan.class);
 
 	    when(userDaoMock.findById(1L)).thenReturn(mockUser);
-	    when(loanDaoMock.searchLoans(mockUser, null)).thenReturn(List.of(activeLoan, overdueLoan, returnedLoan));
+	    when(loanDaoMock.searchLoans(mockUser, null, 0, 0)).thenReturn(List.of(activeLoan, overdueLoan, returnedLoan));
 	    when(activeLoan.getState()).thenReturn(LoanState.ACTIVE);
 	    when(overdueLoan.getState()).thenReturn(LoanState.OVERDUE);
 	    when(returnedLoan.getState()).thenReturn(LoanState.RETURNED);
 
-	    List<Loan> returnedLoans = loanController.getLoansByUser(1L);
+	    List<Loan> returnedLoans = loanController.getLoansByUser(1L, 0, 0);
 
 	    assertNotNull(returnedLoans);
 	    assertEquals(3, returnedLoans.size());  
@@ -378,6 +407,28 @@ public class LoanControllerTest {
 		
 		loanController.extendLoan(1L);
 		
-		verify(mockLoanToExtend).setDueDate(Date.valueOf(today.plusMonths(1)));
+		verify(mockLoanToExtend).setDueDate(today.plusMonths(1));
+	}
+	
+	@Test
+	public void testCountLoansByUser_WhenUserDoesNotExist_ThrowsUserDoesNotExistException() {
+		when(userDaoMock.findById(1L)).thenReturn(null);
+		
+		Exception thrownException = assertThrows(UserDoesNotExistException.class, ()->{
+			loanController.countLoansByUser(1L);
+			
+		});
+		assertEquals("Specified user is not registered in the system!", thrownException.getMessage());					
+	}
+	
+	@Test
+	public void testCountLoansByUser_WhenUserExists() {
+		User mockUser = mock(User.class);
+		
+		when(userDaoMock.findById(1L)).thenReturn(mockUser);
+		
+		loanController.countLoansByUser(1L);
+		
+		verify(loanDaoMock).countLoans(mockUser, null);
 	}
 }

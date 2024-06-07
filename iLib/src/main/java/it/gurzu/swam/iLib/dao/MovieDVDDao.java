@@ -17,5 +17,11 @@ public class MovieDVDDao extends BaseDao<MovieDVD> {
 				.setParameter("isan", isan)
 				.getResultList();		
 	}
-	
+
+	public Long countMoviesByIsan(String isan) {
+		return this.em.createQuery("SELECT COUNT(m) FROM MovieDVD m where m.isan = :isan", Long.class)
+				.setParameter("isan", isan)
+				.getSingleResult();		
+	}
+
 }

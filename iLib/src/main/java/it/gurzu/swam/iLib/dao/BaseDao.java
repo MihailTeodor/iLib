@@ -3,6 +3,7 @@ package it.gurzu.swam.iLib.dao;
 import it.gurzu.swam.iLib.model.BaseEntity;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import jakarta.transaction.Transactional;
 
 public abstract class BaseDao<E extends BaseEntity> {
 
@@ -19,6 +20,7 @@ public abstract class BaseDao<E extends BaseEntity> {
 		return em.find(type, id);
 	}
 	
+	@Transactional
 	public void save(E entity) {
 		if(entity.getId() != null)
 			em.merge(entity);

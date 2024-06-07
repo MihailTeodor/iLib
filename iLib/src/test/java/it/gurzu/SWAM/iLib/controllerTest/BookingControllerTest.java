@@ -8,7 +8,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.sql.Date;
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.Collections;
@@ -27,6 +26,7 @@ import it.gurzu.swam.iLib.controllers.BookingController;
 import it.gurzu.swam.iLib.dao.ArticleDao;
 import it.gurzu.swam.iLib.dao.BookingDao;
 import it.gurzu.swam.iLib.dao.UserDao;
+import it.gurzu.swam.iLib.dto.BookingDTO;
 import it.gurzu.swam.iLib.exceptions.ArticleDoesNotExistException;
 import it.gurzu.swam.iLib.exceptions.BookingDoesNotExistException;
 import it.gurzu.swam.iLib.exceptions.InvalidOperationException;
@@ -59,23 +59,6 @@ public class BookingControllerTest {
 		FieldUtils.writeField(bookingController, "articleDao", articleDaoMock, true);
 	}
 	
-	@Test
-	public void testRegisterBooking_WhenUserIdIsNull_ThrowsIllegalArgumentException() {
-		Exception thrownException = assertThrows(IllegalArgumentException.class, ()->{
-			bookingController.registerBooking(null, 1L);
-			
-		});
-		assertEquals("Cannot register Booking, User not specified!", thrownException.getMessage());	
-	}
-
-	@Test
-	public void testRegisterBooking_WhenArticleIdIsNull_ThrowsIllegalArgumentException() {
-		Exception thrownException = assertThrows(IllegalArgumentException.class, ()->{
-			bookingController.registerBooking(1L, null);
-			
-		});
-		assertEquals("Cannot register Booking, Article not specified!", thrownException.getMessage());	
-	}
 	
 	@Test
 	public void testRegisterBooking_WhenUserDoesNotExist_ThrowsUserDoesNotExistException() {
@@ -105,7 +88,7 @@ public class BookingControllerTest {
 	
     @ParameterizedTest
     @EnumSource(value = ArticleState.class, names = {"BOOKED", "ONLOANBOOKED", "UNAVAILABLE"})
-    void registerBooking_ArticleStateConditions_ThrowsInvalidOperationException(ArticleState state) {
+    public void testRegisterBooking_WhenInvalidArticleStateConditions_ThrowsInvalidOperationException(ArticleState state) {
         User user = mock(User.class);
         Article article = mock(Article.class);
 
@@ -126,7 +109,7 @@ public class BookingControllerTest {
 	
     @ParameterizedTest
     @MethodSource("testRegisterBooking_SuccessfulRegistrationArgumentsProvider")
-    void registerBooking_SuccessfulRegistration(ArticleState initialState, ArticleState expectedState) {
+    public void testRegisterBooking_SuccessfulRegistration(ArticleState initialState, ArticleState expectedState) {
         User user = mock(User.class);
         Article article = mock(Article.class);
 
@@ -134,19 +117,20 @@ public class BookingControllerTest {
         when(articleDaoMock.findById(1L)).thenReturn(article);
         when(article.getState()).thenReturn(initialState);
 
-        bookingController.registerBooking(1L, 1L);
+        Long returnedId = bookingController.registerBooking(1L, 1L);
 
         ArgumentCaptor<Booking> bookingCaptor = ArgumentCaptor.forClass(Booking.class);
         verify(bookingDaoMock).save(bookingCaptor.capture());
         Booking registeredBooking = bookingCaptor.getValue();
 
+        assertEquals(returnedId, registeredBooking.getId());
         assertEquals(user, registeredBooking.getBookingUser());
         assertEquals(article, registeredBooking.getBookedArticle());
         assertEquals(BookingState.ACTIVE, registeredBooking.getState());
         verify(article).setState(expectedState);
 
         if (initialState == ArticleState.AVAILABLE) {
-            assertEquals(Date.valueOf(today.plusDays(3)), registeredBooking.getBookingEndDate());
+            assertEquals(today.plusDays(3), registeredBooking.getBookingEndDate());
         }
     }
 	
@@ -164,30 +148,74 @@ public class BookingControllerTest {
 	@Test
 	public void testGetBookingInfo_WhenBookingFoundAndActive_CallsValidateState() {
 	    Booking mockBooking = mock(Booking.class);
+    	Article mockArticle = mock(Article.class);
+    	User mockUser = mock(User.class);
+
+    	when(mockArticle.getId()).thenReturn(3L);
+    	when(mockUser.getId()).thenReturn(5L);
+
+    	when(mockBooking.getBookedArticle()).thenReturn(mockArticle);
+    	when(mockBooking.getBookingUser()).thenReturn(mockUser);
+
 	    when(mockBooking.getState()).thenReturn(BookingState.ACTIVE);
 	    when(bookingDaoMock.findById(1L)).thenReturn(mockBooking);
-
-	    Booking result = bookingController.getBookingInfo(1L);
+	    
+	    bookingController.getBookingInfo(1L);
 
 	    verify(mockBooking).validateState();
-	    assertNotNull(result);
-	    assertEquals(mockBooking, result);
 	}
 	
     @ParameterizedTest
     @EnumSource(value = BookingState.class, names = {"CANCELLED", "COMPLETED", "EXPIRED"})
 	public void testGetBookingInfo_WhenBookingFoundAndNotActive_DoesNotCallValidateState(BookingState state) {
 	    Booking mockBooking = mock(Booking.class);
-	    when(mockBooking.getState()).thenReturn(state);
+    	Article mockArticle = mock(Article.class);
+    	User mockUser = mock(User.class);
+
+    	when(mockArticle.getId()).thenReturn(3L);
+    	when(mockUser.getId()).thenReturn(5L);
+
+    	when(mockBooking.getBookedArticle()).thenReturn(mockArticle);
+    	when(mockBooking.getBookingUser()).thenReturn(mockUser);
+    	
+        when(mockBooking.getState()).thenReturn(state);
 	    when(bookingDaoMock.findById(1L)).thenReturn(mockBooking);
 
-	    Booking result = bookingController.getBookingInfo(1L);
+	    bookingController.getBookingInfo(1L);
 
 	    verify(mockBooking, never()).validateState();
-	    assertNotNull(result);
-	    assertEquals(mockBooking, result);
 	}
+    
+    @Test
+    public void testGetBookingInfo_ReturnsCorrectDTO() {
+    	Booking mockBooking = mock(Booking.class);
+    	Article mockArticle = mock(Article.class);
+    	User mockUser = mock(User.class);
+    	
+    	when(mockArticle.getId()).thenReturn(3L);
+    	when(mockArticle.getTitle()).thenReturn("a title");
+    	
+    	when(mockUser.getId()).thenReturn(5L);
+    	
+    	when(mockBooking.getId()).thenReturn(1L);
+		when(mockBooking.getState()).thenReturn(BookingState.ACTIVE);
+    	when(mockBooking.getBookedArticle()).thenReturn(mockArticle);
+    	when(mockBooking.getBookingUser()).thenReturn(mockUser);
+    	when(mockBooking.getBookingDate()).thenReturn(today);
+    	when(mockBooking.getBookingEndDate()).thenReturn(today.plusDays(3));
+	    when(bookingDaoMock.findById(1L)).thenReturn(mockBooking);
 
+    	BookingDTO bookingDTO = bookingController.getBookingInfo(1L);
+    	
+    	assertNotNull(bookingDTO);
+    	assertEquals(bookingDTO.getId(), mockBooking.getId());
+    	assertEquals(bookingDTO.getState(), mockBooking.getState());
+    	assertEquals(bookingDTO.getBookedArticleId(), mockBooking.getBookedArticle().getId());
+    	assertEquals(bookingDTO.getBookedArticleTitle(), mockBooking.getBookedArticle().getTitle());
+    	assertEquals(bookingDTO.getBookingUserId(), mockBooking.getBookingUser().getId());
+    	assertEquals(bookingDTO.getBookingDate(), mockBooking.getBookingDate());
+    	assertEquals(bookingDTO.getBookingEndDate(), mockBooking.getBookingEndDate());
+    }
 	
     @Test
     public void testCancelBooking_WhenBookingNotFound_ThrowsBookingDoesNotExistException() {
@@ -235,7 +263,7 @@ public class BookingControllerTest {
     	when(userDaoMock.findById(1L)).thenReturn(null);
     	
 		Exception thrownException = assertThrows(UserDoesNotExistException.class, ()->{
-			bookingController.getBookedArticlesByUser(1L);
+			bookingController.getBookingsByUser(1L, 0, 0);
 			
 		});
 		assertEquals("Specified user is not registered in the system!", thrownException.getMessage());
@@ -245,10 +273,10 @@ public class BookingControllerTest {
     public void testGetBookedArticlesByUser_WhenNoBookingsFound_ThrowsSearchHasGivenNoResultsException() {
     	User user = mock(User.class);
     	when(userDaoMock.findById(1L)).thenReturn(user);
-    	when(bookingDaoMock.searchBookings(user, null)).thenReturn(Collections.emptyList());
+    	when(bookingDaoMock.searchBookings(user, null, 0, 0)).thenReturn(Collections.emptyList());
     	
 		Exception thrownException = assertThrows(SearchHasGivenNoResultsException.class, ()->{
-			bookingController.getBookedArticlesByUser(1L);
+			bookingController.getBookingsByUser(1L, 0, 0);
 			
 		});
 		assertEquals("No bookings relative to the specified user found!", thrownException.getMessage());
@@ -265,9 +293,9 @@ public class BookingControllerTest {
 
 
         when(userDaoMock.findById(1L)).thenReturn(user);
-        when(bookingDaoMock.searchBookings(user, null)).thenReturn(Arrays.asList(activeBooking1, activeBooking2));
+        when(bookingDaoMock.searchBookings(user, null, 0, 0)).thenReturn(Arrays.asList(activeBooking1, activeBooking2));
 
-        bookingController.getBookedArticlesByUser(1L);
+        bookingController.getBookingsByUser(1L, 0, 0);
 
         verify(activeBooking1).validateState();
         verify(activeBooking1).validateState();
@@ -286,12 +314,34 @@ public class BookingControllerTest {
 
 
         when(userDaoMock.findById(1L)).thenReturn(user);
-        when(bookingDaoMock.searchBookings(user, null)).thenReturn(Arrays.asList(activeBooking1, activeBooking2));
+        when(bookingDaoMock.searchBookings(user, null, 0, 0)).thenReturn(Arrays.asList(activeBooking1, activeBooking2));
 
-        bookingController.getBookedArticlesByUser(1L);
+        bookingController.getBookingsByUser(1L, 0, 0);
 
         verify(activeBooking1).validateState();
         verify(activeBooking2, never()).validateState();
+    }
+    
+    @Test
+    public void testCountBookingsByUser_WhenUserDoesNotExist_ThrowsUserDoesNotExistException() {
+    	when(userDaoMock.findById(1L)).thenReturn(null);
+    	
+		Exception thrownException = assertThrows(UserDoesNotExistException.class, ()->{
+			bookingController.countBookingsByUser(1L);
+			
+		});
+		assertEquals("Specified user is not registered in the system!", thrownException.getMessage());
+
+    }
+    
+    @Test
+    public void testCountBookingsByUser_WhenUserExists() {
+    	User userMock = mock(User.class);
+    	when(userDaoMock.findById(1L)).thenReturn(userMock);
+    	
+    	bookingController.countBookingsByUser(1L);
+    	
+    	verify(bookingDaoMock).countBookings(userMock, null);
     }
 	
     private static Stream<Arguments> testRegisterBooking_SuccessfulRegistrationArgumentsProvider() {

@@ -18,5 +18,10 @@ public class MagazineDao extends BaseDao<Magazine> {
 				.getResultList();		
 	}
 
+	public Long countMagazinesByIssn(String issn) {
+		return this.em.createQuery("SELECT COUNT(m) FROM Magazine m where m.issn = :issn", Long.class)
+				.setParameter("issn", issn)
+				.getSingleResult();		
+	}
 
 }

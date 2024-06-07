@@ -3,7 +3,7 @@ package it.gurzu.SWAM.iLib.modelTest;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.sql.Date;
+import java.time.LocalDate;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -32,9 +32,8 @@ public class BookingTest {
 	@Test
 	public void testValidateState_WhenBookingStateIsNotActive_ThrowsIllegalArgumentException() {
 		booking.setState(BookingState.COMPLETED);
-		long millis = System.currentTimeMillis();
-		Date today = new Date(millis);
-		booking.setBookingEndDate(Date.valueOf(today.toLocalDate().plusDays(1)));
+		LocalDate today = LocalDate.now();
+		booking.setBookingEndDate(today.plusDays(1));
 
 		Exception thrownException = assertThrows(IllegalArgumentException.class, () -> {
 			booking.validateState();
@@ -45,9 +44,8 @@ public class BookingTest {
 	@Test
 	public void testValidateState_WhenBookingEndDatePassed_ChangesArticleAndBookingStateAccordingly() {
 		booking.setState(BookingState.ACTIVE);
-		long millis = System.currentTimeMillis();
-		Date today = new Date(millis);
-		booking.setBookingEndDate(Date.valueOf(today.toLocalDate().plusDays(-1)));
+		LocalDate today = LocalDate.now();
+		booking.setBookingEndDate(today.plusDays(-1));
 		
 		try {
 			booking.validateState();
@@ -62,9 +60,8 @@ public class BookingTest {
 	@Test
 	public void testValidateState_WhenBookingEndDateNotPassed_DoesNotChangeState() {
 		booking.setState(BookingState.ACTIVE);
-		long millis = System.currentTimeMillis();
-		Date today = new Date(millis);
-		booking.setBookingEndDate(Date.valueOf(today.toLocalDate().plusDays(1)));
+		LocalDate today = LocalDate.now();
+		booking.setBookingEndDate(today.plusDays(1));
 		booking.getBookedArticle().setState(ArticleState.BOOKED);
 		
 		try {

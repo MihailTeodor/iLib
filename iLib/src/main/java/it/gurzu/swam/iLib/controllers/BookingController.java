@@ -1,12 +1,12 @@
 package it.gurzu.swam.iLib.controllers;
 
-import java.sql.Date;
 import java.time.LocalDate;
 import java.util.List;
 
 import it.gurzu.swam.iLib.dao.ArticleDao;
 import it.gurzu.swam.iLib.dao.BookingDao;
 import it.gurzu.swam.iLib.dao.UserDao;
+import it.gurzu.swam.iLib.dto.BookingDTO;
 import it.gurzu.swam.iLib.exceptions.ArticleDoesNotExistException;
 import it.gurzu.swam.iLib.exceptions.BookingDoesNotExistException;
 import it.gurzu.swam.iLib.exceptions.InvalidOperationException;
@@ -18,8 +18,13 @@ import it.gurzu.swam.iLib.model.Booking;
 import it.gurzu.swam.iLib.model.BookingState;
 import it.gurzu.swam.iLib.model.ModelFactory;
 import it.gurzu.swam.iLib.model.User;
+import jakarta.enterprise.inject.Model;
 import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
+import jakarta.transaction.Transactional.TxType;
 
+@Model
+@Transactional
 public class BookingController {
 	
 	@Inject
@@ -33,13 +38,8 @@ public class BookingController {
 	
 	private final LocalDate today = LocalDate.now();
 
-	public void registerBooking(Long userId, Long articleId) {
+	public Long registerBooking(Long userId, Long articleId) {
 		Booking bookingToRegister = null;
-		if(userId == null)
-			throw new IllegalArgumentException("Cannot register Booking, User not specified!");
-		if(articleId == null)
-			throw new IllegalArgumentException("Cannot register Booking, Article not specified!");
-		
 		User bookingUser = userDao.findById(userId);
 		Article bookedArticle = articleDao.findById(articleId);
 		if(bookingUser == null)
@@ -57,7 +57,7 @@ public class BookingController {
 		case UNAVAILABLE:
 			throw new InvalidOperationException("Cannot register Booking, specified Article is UNAVAILABLE!");
 		case AVAILABLE:
-			bookingToRegister.setBookingEndDate(Date.valueOf(today.plusDays(3)));
+			bookingToRegister.setBookingEndDate(today.plusDays(3));
 			bookedArticle.setState(ArticleState.BOOKED);
 			break;
 		case ONLOAN:
@@ -67,14 +67,16 @@ public class BookingController {
 		
 		bookingToRegister.setBookingUser(bookingUser);
 		bookingToRegister.setBookedArticle(bookedArticle);
-		bookingToRegister.setBookingDate(Date.valueOf(today));
+		bookingToRegister.setBookingDate(today);
 		
 		bookingToRegister.setState(BookingState.ACTIVE);
 		
 		bookingDao.save(bookingToRegister);
+		
+		return bookingToRegister.getId();
 	}
 	
-	public Booking getBookingInfo(Long bookingId) {
+	public BookingDTO getBookingInfo(Long bookingId) {
 		Booking booking = bookingDao.findById(bookingId);
 		
 		if(booking == null)
@@ -83,7 +85,7 @@ public class BookingController {
 		if(booking.getState() == BookingState.ACTIVE)
 			booking.validateState();
 		
-		return booking;
+		return new BookingDTO(booking);
 	}
 
 	public void cancelBooking(Long bookingId) {
@@ -99,13 +101,14 @@ public class BookingController {
 		bookingToCancel.setState(BookingState.CANCELLED);
 	}
 	
-	public List<Booking> getBookedArticlesByUser(Long userId) {
+	@Transactional(value = TxType.REQUIRES_NEW)
+	public List<Booking> getBookingsByUser(Long userId, int fromIndex, int limit) {
 		User user = userDao.findById(userId);
 		
 		if(user == null)
 			throw new UserDoesNotExistException("Specified user is not registered in the system!");
 		
-		List<Booking> userBookings = bookingDao.searchBookings(user, null);
+		List<Booking> userBookings = bookingDao.searchBookings(user, null, fromIndex, limit);
 		
 		if(userBookings.isEmpty())
 			throw new SearchHasGivenNoResultsException("No bookings relative to the specified user found!");
@@ -114,5 +117,14 @@ public class BookingController {
 			if(booking.getState() == BookingState.ACTIVE)
 				booking.validateState();
 		return userBookings;
+	}
+	
+	public Long countBookingsByUser(Long userId) {
+		User user = userDao.findById(userId);
+
+		if(user == null)
+			throw new UserDoesNotExistException("Specified user is not registered in the system!");
+
+			return bookingDao.countBookings(user, null);
 	}
 }

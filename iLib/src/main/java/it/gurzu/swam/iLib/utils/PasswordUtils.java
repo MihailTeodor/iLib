@@ -1,4 +1,4 @@
-package it.gurzu.swam.iLib.Utils;
+package it.gurzu.swam.iLib.utils;
 
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 

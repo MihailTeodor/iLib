@@ -3,7 +3,7 @@ package it.gurzu.SWAM.iLib.modelTest;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.sql.Date;
+import java.time.LocalDate;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -32,9 +32,8 @@ public class LoanTest {
 	@Test
 	public void testValidateState_WhenLoanStateIsNotActive_ThrowsIllegalArgumentException() {
 		loan.setState(LoanState.RETURNED);
-		long millis = System.currentTimeMillis();
-		Date today = new Date(millis);
-		loan.setDueDate(Date.valueOf(today.toLocalDate().plusDays(1)));
+		LocalDate today = LocalDate.now();
+		loan.setDueDate(today.plusDays(1));
 
 		Exception thrownException = assertThrows(IllegalArgumentException.class, () -> {
 			loan.validateState();
@@ -45,9 +44,8 @@ public class LoanTest {
 	@Test
 	public void testValidateState_WhenLoanDueDatePassed_SetsArticleAndLoanStateAccordingly() {
 		loan.setState(LoanState.ACTIVE);
-		long millis = System.currentTimeMillis();
-		Date today = new Date(millis);
-		loan.setDueDate(Date.valueOf(today.toLocalDate().plusDays(-1)));
+		LocalDate today = LocalDate.now();
+		loan.setDueDate(today.plusDays(-1));
 		
 		loan.validateState();
 		
@@ -58,9 +56,8 @@ public class LoanTest {
 	@Test
 	public void testValidateState_WhenBookingEndDateNotPassed_DoesNotChangeState() {
 		loan.setState(LoanState.ACTIVE);
-		long millis = System.currentTimeMillis();
-		Date today = new Date(millis);
-		loan.setDueDate(Date.valueOf(today.toLocalDate().plusDays(1)));
+		LocalDate today = LocalDate.now();
+		loan.setDueDate(today.plusDays(1));
 		loan.getArticleOnLoan().setState(ArticleState.ONLOAN);
 		
 		loan.validateState();

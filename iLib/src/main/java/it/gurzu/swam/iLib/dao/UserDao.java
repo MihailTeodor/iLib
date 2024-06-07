@@ -18,15 +18,31 @@ public class UserDao extends BaseDao<User> {
 			.getSingleResult();
 	}
 	
-	public List<User> findUsers(String name, String surname, String telephoneNumber){
+	public List<User> findUsers(String name, String surname, String telephoneNumber, int fromIndex, int limit){
 		return this.em.createQuery(
 				"FROM User u WHERE "
 				+ "(:name is null or u.name = :name) and "
 				+ "(:surname is null or u.surname = :surname) and"
-				+ "(:telephoneNumber is null or u.telephoneNumber = :telephoneNumber)", User.class)
+				+ "(:telephoneNumber is null or u.telephoneNumber = :telephoneNumber)"
+				+ "ORDER BY u.name ASC, u.surname ASC", User.class)
 				.setParameter("name", name)
 				.setParameter("surname", surname)
 				.setParameter("telephoneNumber", telephoneNumber)
+				.setFirstResult(fromIndex)
+				.setMaxResults(limit)
 				.getResultList();
 	}
+
+	public Long countUsers(String name, String surname, String telephoneNumber){
+		return this.em.createQuery(
+				"SELECT COUNT(u) FROM User u WHERE "
+				+ "(:name is null or u.name = :name) and "
+				+ "(:surname is null or u.surname = :surname) and"
+				+ "(:telephoneNumber is null or u.telephoneNumber = :telephoneNumber)", Long.class)
+				.setParameter("name", name)
+				.setParameter("surname", surname)
+				.setParameter("telephoneNumber", telephoneNumber)
+				.getSingleResult();
+	}
+
 }

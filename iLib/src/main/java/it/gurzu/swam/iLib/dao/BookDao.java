@@ -17,5 +17,11 @@ public class BookDao extends BaseDao<Book> {
 				.setParameter("isbn", isbn)
 				.getResultList();		
 	}
+	
+	public Long countBooksByIsbn(String isbn) {
+		return this.em.createQuery("SELECT COUNT(b) FROM Book b where b.isbn = :isbn", Long.class)
+				.setParameter("isbn", isbn)
+				.getSingleResult();		
+	}
 
 }

@@ -28,9 +28,27 @@ public class BookDaoTest extends JPATest {
 	}
 	
 	@Test
-	public void testFindBookByIsbn() {
+	public void testFindBooksByIsbn() {
 		List<Book> retrievedBooks = bookDao.findBooksByIsbn("1234567");
 		assertEquals(1, retrievedBooks.size());
 		assertEquals(true, retrievedBooks.contains(book));
+	}
+	
+	@Test
+	public void testCountBooksByIsbn() {
+		Book book2 = ModelFactory.book();
+		book2.setIsbn("1234567");
+		
+		em.persist(book2);
+
+		Book book3 = ModelFactory.book();
+		book3.setIsbn("1234567");
+		
+		em.persist(book3);
+		
+		Long resultsNumber = bookDao.countBooksByIsbn("1234567");
+		
+		assertEquals(3, resultsNumber);
+
 	}
 }

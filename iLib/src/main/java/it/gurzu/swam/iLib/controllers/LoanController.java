@@ -1,6 +1,5 @@
 package it.gurzu.swam.iLib.controllers;
 
-import java.sql.Date;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -8,6 +7,7 @@ import it.gurzu.swam.iLib.dao.ArticleDao;
 import it.gurzu.swam.iLib.dao.BookingDao;
 import it.gurzu.swam.iLib.dao.LoanDao;
 import it.gurzu.swam.iLib.dao.UserDao;
+import it.gurzu.swam.iLib.dto.LoanDTO;
 import it.gurzu.swam.iLib.exceptions.ArticleDoesNotExistException;
 import it.gurzu.swam.iLib.exceptions.InvalidOperationException;
 import it.gurzu.swam.iLib.exceptions.LoanDoesNotExistException;
@@ -20,8 +20,13 @@ import it.gurzu.swam.iLib.model.Loan;
 import it.gurzu.swam.iLib.model.LoanState;
 import it.gurzu.swam.iLib.model.ModelFactory;
 import it.gurzu.swam.iLib.model.User;
+import jakarta.enterprise.inject.Model;
 import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
+import jakarta.transaction.Transactional.TxType;
 
+@Model
+@Transactional
 public class LoanController {
 
 	@Inject
@@ -39,13 +44,8 @@ public class LoanController {
 	private final LocalDate today = LocalDate.now();
 
 	
-	public void registerLoan(Long userId, Long articleId) {
+	public Long registerLoan(Long userId, Long articleId) {
 		Loan loanToRegister = null;
-		if(userId == null)
-			throw new IllegalArgumentException("Cannot register Loan, User not specified!");
-		if(articleId == null)
-			throw new IllegalArgumentException("Cannot register Loan, Article not specified!");
-
 		User loaningUser = userDao.findById(userId);
 		Article loanedArticle = articleDao.findById(articleId);
 		
@@ -56,7 +56,7 @@ public class LoanController {
 
 		switch(loanedArticle.getState()) {
 		case BOOKED:
-			List<Booking> bookings = bookingDao.searchBookings(null, loanedArticle);
+			List<Booking> bookings = bookingDao.searchBookings(null, loanedArticle, 0, 1);
 			if(bookings.get(0).getBookingUser() != loaningUser)
 				throw new InvalidOperationException("Cannot register Loan, specified Article is booked by another user!");
 			else
@@ -75,14 +75,16 @@ public class LoanController {
 		loanToRegister = ModelFactory.loan();
 		loanToRegister.setArticleOnLoan(loanedArticle);
 		loanToRegister.setLoaningUser(loaningUser);
-		loanToRegister.setLoanDate(Date.valueOf(today));
-		loanToRegister.setDueDate(Date.valueOf(today.plusMonths(1)));
+		loanToRegister.setLoanDate(today);
+		loanToRegister.setDueDate(today.plusMonths(1));
 		loanToRegister.setRenewed(false);
 		
 		loanedArticle.setState(ArticleState.ONLOAN);
 		loanToRegister.setState(LoanState.ACTIVE);
 		
 		loanDao.save(loanToRegister);
+		
+		return loanToRegister.getId();
 	} 
 	
 	public void registerReturn(Long loanId) {
@@ -105,8 +107,8 @@ public class LoanController {
 			break;
 		case ONLOANBOOKED:
 			loanArticle.setState(ArticleState.BOOKED);			
-			Booking booking = bookingDao.searchBookings(null, loanArticle).get(0);
-			booking.setBookingEndDate(Date.valueOf(today.plusDays(3)));
+			Booking booking = bookingDao.searchBookings(null, loanArticle, 0, 1).get(0);
+			booking.setBookingEndDate(today.plusDays(3));
 			break;
 		default:
 			break;
@@ -115,7 +117,7 @@ public class LoanController {
 		loanToReturn.setState(LoanState.RETURNED);
 	}
 	
-	public Loan getLoanInfo(Long loanId) {
+	public LoanDTO getLoanInfo(Long loanId) {
 		Loan loan = loanDao.findById(loanId);
 		
 		if(loan == null)
@@ -124,16 +126,17 @@ public class LoanController {
 		if(loan.getState() == LoanState.ACTIVE)
 			loan.validateState();
 		
-		return loan;
+		return new LoanDTO(loan);
 	}
 
-	public List<Loan> getLoansByUser(Long userId) {
+	@Transactional(value = TxType.REQUIRES_NEW)
+	public List<Loan> getLoansByUser(Long userId, int fromIndex, int limit) {
 		User user = userDao.findById(userId);
 		
 		if(user == null)
 			throw new UserDoesNotExistException("Specified user is not registered in the system!");
 
-		List<Loan> userLoans = loanDao.searchLoans(user, null);
+		List<Loan> userLoans = loanDao.searchLoans(user, null, fromIndex, limit);
 		
 		if(userLoans.isEmpty())
 			throw new LoanDoesNotExistException("No loans relative to the specified user found!");
@@ -152,8 +155,17 @@ public class LoanController {
 			throw new LoanDoesNotExistException("Cannot extend Loan! Loan does not exist!");
 
 		if(loanToExtend.getArticleOnLoan().getState() == ArticleState.ONLOAN)
-			loanToExtend.setDueDate(Date.valueOf(today.plusMonths(1)));
+			loanToExtend.setDueDate(today.plusMonths(1));
 		else
 			throw new InvalidOperationException("Cannot extend loan, another User has booked the Article!");
+	}
+	
+	public Long countLoansByUser(Long userId) {
+		User user = userDao.findById(userId);
+		
+		if(user == null)
+			throw new UserDoesNotExistException("Specified user is not registered in the system!");
+
+		return loanDao.countLoans(user, null);
 	}
 }

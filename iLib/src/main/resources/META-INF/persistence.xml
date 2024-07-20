@@ -6,10 +6,9 @@
 			
 	<persistence-unit name="iLib" transaction-type="JTA">
 	
- 	<jta-data-source>iLibDS</jta-data-source>
-<!--  	
+<!--  	<jta-data-source>iLibDS</jta-data-source> -->
+
 	<jta-data-source>iLibTestDS</jta-data-source>
- --> 	
 	
 	<class>it.gurzu.swam.iLib.model.Article</class>
 	<class>it.gurzu.swam.iLib.model.Book</class>

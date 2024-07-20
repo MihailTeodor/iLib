@@ -5,7 +5,7 @@
 	},
 	"DB": {
 		"connectionURL": "jdbc:mysql://localhost:3306/iLib_test?serverTimezone=UTC",
-		"username": "test-client",
-		"password": "test"
+		"username": "java-client",
+		"password": "password"
 	}
 }

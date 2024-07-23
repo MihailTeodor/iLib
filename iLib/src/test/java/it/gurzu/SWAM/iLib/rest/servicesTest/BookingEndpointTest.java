@@ -454,8 +454,8 @@ public class BookingEndpointTest extends ServiceTest {
 
         Booking booking1 = QueryUtils.queryCreateBooking(connection, 1L, LocalDate.now().plusDays(1), LocalDate.now().plusDays(3), BookingState.ACTIVE, book1, citizenUser);
         Booking booking2 = QueryUtils.queryCreateBooking(connection, 2L, LocalDate.now().plusDays(2), LocalDate.now().plusDays(4), BookingState.ACTIVE, book2, citizenUser);
-        Booking booking3 = QueryUtils.queryCreateBooking(connection, 3L, LocalDate.now().plusDays(3), LocalDate.now().plusDays(5), BookingState.ACTIVE, book3, citizenUser);
-        Booking booking4 = QueryUtils.queryCreateBooking(connection, 4L, LocalDate.now().plusDays(4), LocalDate.now().plusDays(6), BookingState.ACTIVE, book4, citizenUser);
+        QueryUtils.queryCreateBooking(connection, 3L, LocalDate.now().plusDays(3), LocalDate.now().plusDays(5), BookingState.ACTIVE, book3, citizenUser);
+        QueryUtils.queryCreateBooking(connection, 4L, LocalDate.now().plusDays(4), LocalDate.now().plusDays(6), BookingState.ACTIVE, book4, citizenUser);
 
         request = RestAssured.given();
         request.header("Authorization", "Bearer " + adminToken);

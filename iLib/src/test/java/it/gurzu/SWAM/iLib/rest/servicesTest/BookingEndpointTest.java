@@ -452,10 +452,10 @@ public class BookingEndpointTest extends ServiceTest {
         Book book3 = QueryUtils.queryCreateBook(connection, 3L, "Shelf 3", "Book 3", LocalDate.now(), "Publisher 3", "Fiction", "Description 3", ArticleState.AVAILABLE, "Author 3", "1234567890");
         Book book4 = QueryUtils.queryCreateBook(connection, 4L, "Shelf 4", "Book 4", LocalDate.now(), "Publisher 4", "Fiction", "Description 4", ArticleState.AVAILABLE, "Author 4", "1234567890");
 
-        QueryUtils.queryCreateBooking(connection, 1L, LocalDate.now().plusDays(1), LocalDate.now().plusDays(3), BookingState.ACTIVE, book1, citizenUser);
-        QueryUtils.queryCreateBooking(connection, 2L, LocalDate.now().plusDays(2), LocalDate.now().plusDays(3), BookingState.ACTIVE, book2, citizenUser);
-        Booking booking3 = QueryUtils.queryCreateBooking(connection, 3L, LocalDate.now().plusDays(3), LocalDate.now().plusDays(3), BookingState.ACTIVE, book3, citizenUser);
-        Booking booking4 = QueryUtils.queryCreateBooking(connection, 4L, LocalDate.now().plusDays(4), LocalDate.now().plusDays(3), BookingState.ACTIVE, book4, citizenUser);
+        Booking booking1 = QueryUtils.queryCreateBooking(connection, 1L, LocalDate.now().plusDays(1), LocalDate.now().plusDays(3), BookingState.ACTIVE, book1, citizenUser);
+        Booking booking2 = QueryUtils.queryCreateBooking(connection, 2L, LocalDate.now().plusDays(2), LocalDate.now().plusDays(4), BookingState.ACTIVE, book2, citizenUser);
+        Booking booking3 = QueryUtils.queryCreateBooking(connection, 3L, LocalDate.now().plusDays(3), LocalDate.now().plusDays(5), BookingState.ACTIVE, book3, citizenUser);
+        Booking booking4 = QueryUtils.queryCreateBooking(connection, 4L, LocalDate.now().plusDays(4), LocalDate.now().plusDays(6), BookingState.ACTIVE, book4, citizenUser);
 
         request = RestAssured.given();
         request.header("Authorization", "Bearer " + adminToken);
@@ -475,10 +475,10 @@ public class BookingEndpointTest extends ServiceTest {
         assertEquals(2, itemsArray.size());
 
         JsonObject bookingObject = itemsArray.get(0).getAsJsonObject();
-        assertEquals(booking3.getId(), bookingObject.get("id").getAsLong());
+        assertEquals(booking2.getId(), bookingObject.get("id").getAsLong());
 
         bookingObject = itemsArray.get(1).getAsJsonObject();
-        assertEquals(booking4.getId(), bookingObject.get("id").getAsLong());
+        assertEquals(booking1.getId(), bookingObject.get("id").getAsLong());
 
         assertEquals(2, responseBody.get("pageNumber").getAsInt());
         assertEquals(2, responseBody.get("resultsPerPage").getAsInt());

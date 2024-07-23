@@ -444,10 +444,10 @@ public class LoanEndpointTest extends ServiceTest {
         Book book3 = QueryUtils.queryCreateBook(connection, 3L, "Shelf 3", "Book 3", LocalDate.now(), "Publisher 3", "Science", "Description 3", ArticleState.AVAILABLE, "Author 3", "1122334455");
         Book book4 = QueryUtils.queryCreateBook(connection, 4L, "Shelf 4", "Book 4", LocalDate.now(), "Publisher 4", "Science", "Description 4", ArticleState.AVAILABLE, "Author 4", "1122334455");
 
-        QueryUtils.queryCreateLoan(connection, 1L, LocalDate.now().plusDays(1), LocalDate.now().plusMonths(1), LoanState.ACTIVE, false, book1, citizenUser);
-        QueryUtils.queryCreateLoan(connection, 2L, LocalDate.now().plusDays(2), LocalDate.now().plusMonths(1), LoanState.ACTIVE, false, book2, citizenUser);
-        Loan loan3 = QueryUtils.queryCreateLoan(connection, 3L, LocalDate.now().plusDays(3), LocalDate.now().plusMonths(1), LoanState.ACTIVE, false, book3, citizenUser);
-        Loan loan4 = QueryUtils.queryCreateLoan(connection, 4L, LocalDate.now().plusDays(4), LocalDate.now().plusMonths(1), LoanState.ACTIVE, false, book4, citizenUser);
+        Loan loan1 = QueryUtils.queryCreateLoan(connection, 1L, LocalDate.now().plusDays(1), LocalDate.now().plusMonths(1).plusDays(1), LoanState.ACTIVE, false, book1, citizenUser);
+        Loan loan2 = QueryUtils.queryCreateLoan(connection, 2L, LocalDate.now().plusDays(2), LocalDate.now().plusMonths(1).plusDays(2), LoanState.ACTIVE, false, book2, citizenUser);
+        QueryUtils.queryCreateLoan(connection, 3L, LocalDate.now().plusDays(3), LocalDate.now().plusMonths(1).plusDays(3), LoanState.ACTIVE, false, book3, citizenUser);
+        QueryUtils.queryCreateLoan(connection, 4L, LocalDate.now().plusDays(4), LocalDate.now().plusMonths(1).plusDays(4), LoanState.ACTIVE, false, book4, citizenUser);
 
         request = RestAssured.given();
         request.header("Authorization", "Bearer " + citizenToken);
@@ -468,10 +468,10 @@ public class LoanEndpointTest extends ServiceTest {
         assertEquals(2, itemsArray.size());
 
         JsonObject loanObject = itemsArray.get(0).getAsJsonObject();
-        assertEquals(loan3.getId(), loanObject.get("id").getAsLong());
+        assertEquals(loan2.getId(), loanObject.get("id").getAsLong());
 
         loanObject = itemsArray.get(1).getAsJsonObject();
-        assertEquals(loan4.getId(), loanObject.get("id").getAsLong());
+        assertEquals(loan1.getId(), loanObject.get("id").getAsLong());
 
         assertEquals(2, responseBody.get("pageNumber").getAsInt());
         assertEquals(2, responseBody.get("resultsPerPage").getAsInt());

@@ -55,7 +55,7 @@ public class AuthenticationEndpointTest extends ServiceTest {
 		body = response.getBody().asString();
 		responseBody = JsonParser.parseString(body).getAsJsonObject();
 
-		assertTrue(responseBody.has("token"));
+		assertTrue(responseBody.has("token") && responseBody.has("userId") && responseBody.has("role"));
 	}
 
 	@ParameterizedTest

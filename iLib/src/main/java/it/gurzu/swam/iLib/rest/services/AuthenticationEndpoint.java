@@ -34,8 +34,7 @@ public class AuthenticationEndpoint {
 						.entity("{\"error\": \"" + "Credentials are invalid." + "\"}").build();
 			
 			String token = JWTUtil.generateToken(user.getId(), user.getEmail(), user.getRole());
-			
-			return Response.ok("{\"token\": \"" + token + "\"}").build();
+            return Response.ok("{\"token\": \"" + token + "\", \"userId\": \"" + user.getId() + "\", \"role\": \"" + user.getRole() + "\"}").build();
 		} catch (SearchHasGivenNoResultsException e) {
 			return Response.status(Response.Status.UNAUTHORIZED)
 					.entity("{\"error\": \"" + "Credentials are invalid." + "\"}").build();

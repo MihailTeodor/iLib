@@ -15,13 +15,15 @@ public class UserDashboardDTO {
     private String email;
     private String address;
     private String telephoneNumber;
+    private long totalBookings;
+    private long totalLoans;
     
     private List<BookingDTO> bookings;
     private List<LoanDTO> loans;
     
     protected UserDashboardDTO() {}
     
-    public UserDashboardDTO(User user, List<Booking> bookings, List<Loan> loans) {
+    public UserDashboardDTO(User user, List<Booking> bookings, List<Loan> loans, long totalBookings, long totalLoans) {
     	this.id = user.getId();
     	this.name = user.getName();
     	this.surname = user.getSurname();
@@ -38,6 +40,9 @@ public class UserDashboardDTO {
     		this.loans = loans.stream()
     					  .map(LoanDTO::new)
     					  .collect(Collectors.toList());
+    	
+    	this.totalBookings = totalBookings;
+    	this.totalLoans = totalLoans;
     }
     
 	public Long getId() {
@@ -89,5 +94,21 @@ public class UserDashboardDTO {
 	}
 	public void setBookings(List<BookingDTO> bookings) {
 		this.bookings = bookings;
+	}
+
+	public long getTotalBookings() {
+		return totalBookings;
+	}
+
+	public void setTotalBookings(long totalBookings) {
+		this.totalBookings = totalBookings;
+	}
+
+	public long getTotalLoans() {
+		return totalLoans;
+	}
+
+	public void setTotalLoans(long totalLoans) {
+		this.totalLoans = totalLoans;
 	}    
 }

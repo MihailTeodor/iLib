@@ -116,6 +116,8 @@ public class UserController {
 			loans = null;
 		}
 		
-		return new UserDashboardDTO(user, bookings, loans);
+		Long totalBookings = bookingController.countBookingsByUser(id);
+		Long totalLoans = loanController.countLoansByUser(id);
+		return new UserDashboardDTO(user, bookings, loans, totalBookings, totalLoans);
 	}
 }

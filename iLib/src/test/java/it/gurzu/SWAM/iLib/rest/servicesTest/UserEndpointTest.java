@@ -105,6 +105,9 @@ public class UserEndpointTest extends ServiceTest {
 		assertEquals(bookingEndDateResponse, booking.getBookingEndDate());
 
 		assertTrue(responseBody.get("loans").isJsonNull());
+		
+		assertEquals(responseBody.get("bookingsNr").getAsLong(), 1L);
+		assertEquals(responseBody.get("loansNr").getAsLong(), 0L);
 	}
 
 	@Test
@@ -156,6 +159,9 @@ public class UserEndpointTest extends ServiceTest {
 		assertEquals(bookingEndDateResponse, booking.getBookingEndDate());
 
 		assertTrue(responseBody.get("loans").isJsonNull());
+		
+		assertEquals(responseBody.get("bookingsNr").getAsLong(), 1L);
+		assertEquals(responseBody.get("loansNr").getAsLong(), 0L);
 	}
 
 	

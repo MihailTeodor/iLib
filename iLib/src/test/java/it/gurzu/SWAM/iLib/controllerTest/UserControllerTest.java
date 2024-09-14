@@ -248,6 +248,8 @@ public class UserControllerTest {
         when(userDaoMock.findById(1L)).thenReturn(mockUser);
         when(bookingControllerMock.getBookingsByUser(1L, 0, 5)).thenReturn(Collections.singletonList(mockBooking));
         when(loanControllerMock.getLoansByUser(1L, 0, 5)).thenReturn(Collections.singletonList(mockLoan));
+        when(bookingControllerMock.countBookingsByUser(1L)).thenReturn(1L);
+        when(loanControllerMock.countLoansByUser(1L)).thenReturn(1L);
 
         UserDashboardDTO result = userController.getUserInfoExtended(1L);
 
@@ -257,12 +259,14 @@ public class UserControllerTest {
         assertEquals(mockUser.getEmail(), result.getEmail());
         assertEquals(mockUser.getAddress(), result.getAddress());
         assertEquals(mockUser.getTelephoneNumber(), result.getTelephoneNumber());
-        
         assertEquals(1, result.getBookings().size());
         assertEquals(Long.valueOf(10L), result.getBookings().get(0).getId());
         
         assertEquals(1, result.getLoans().size());
         assertEquals(Long.valueOf(20L), result.getLoans().get(0).getId());
+
+        assertEquals(1L, result.getTotalBookings());
+        assertEquals(1L, result.getTotalLoans());
     }
 
 }

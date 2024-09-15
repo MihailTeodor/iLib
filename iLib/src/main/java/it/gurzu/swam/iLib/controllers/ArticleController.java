@@ -13,6 +13,8 @@ import it.gurzu.swam.iLib.dao.MovieDVDDao;
 import it.gurzu.swam.iLib.dto.ArticleDTO;
 import it.gurzu.swam.iLib.dto.ArticleMapper;
 import it.gurzu.swam.iLib.dto.ArticleType;
+import it.gurzu.swam.iLib.dto.BookingDTO;
+import it.gurzu.swam.iLib.dto.LoanDTO;
 import it.gurzu.swam.iLib.exceptions.ArticleDoesNotExistException;
 import it.gurzu.swam.iLib.exceptions.InvalidOperationException;
 import it.gurzu.swam.iLib.exceptions.InvalidStateTransitionException;
@@ -186,29 +188,32 @@ public class ArticleController {
 			throw new ArticleDoesNotExistException("Article does not exist!");
 
 		List<Loan> loans = null;
-		LocalDate loanDueDate = null;
-		LocalDate bookingEndDate = null;
+		List<Booking> bookings = null;
+		LoanDTO loanDTO = null;
+		BookingDTO bookingDTO = null;
 
 		switch (article.getState()) {
 		case BOOKED:
-			List<Booking> bookings = bookingDao.searchBookings(null, article, 0, 1);
+			bookings = bookingDao.searchBookings(null, article, 0, 1);
 			bookings.get(0).validateState();
-			bookingEndDate = bookings.get(0).getBookingEndDate();
+			bookingDTO = new BookingDTO(bookings.get(0));
 			break;
 		case ONLOAN:
 			loans = loanDao.searchLoans(null, article, 0, 1);
 			loans.get(0).validateState();
-			loanDueDate = loans.get(0).getDueDate();
+			loanDTO = new LoanDTO(loans.get(0));
 			break;
 		case ONLOANBOOKED:
+			bookings = bookingDao.searchBookings(null, article, 0, 1);
+			bookings.get(0).validateState();
+			bookingDTO = new BookingDTO(bookings.get(0));
 			loans = loanDao.searchLoans(null, article, 0, 1);
 			loans.get(0).validateState();
-			loanDueDate = loans.get(0).getDueDate();
-			break;
+			loanDTO = new LoanDTO(loans.get(0));
 		default:
 			break;
 		}
 
-		return ArticleMapper.toDTO(article, loanDueDate, bookingEndDate);
+		return ArticleMapper.toDTO(article, loanDTO, bookingDTO);
 	}
 }

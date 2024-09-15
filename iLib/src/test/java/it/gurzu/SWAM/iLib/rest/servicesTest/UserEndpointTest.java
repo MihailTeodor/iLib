@@ -106,8 +106,8 @@ public class UserEndpointTest extends ServiceTest {
 
 		assertTrue(responseBody.get("loans").isJsonNull());
 		
-		assertEquals(responseBody.get("bookingsNr").getAsLong(), 1L);
-		assertEquals(responseBody.get("loansNr").getAsLong(), 0L);
+		assertEquals(responseBody.get("totalBookings").getAsLong(), 1L);
+		assertEquals(responseBody.get("totalLoans").getAsLong(), 0L);
 	}
 
 	@Test
@@ -160,8 +160,8 @@ public class UserEndpointTest extends ServiceTest {
 
 		assertTrue(responseBody.get("loans").isJsonNull());
 		
-		assertEquals(responseBody.get("bookingsNr").getAsLong(), 1L);
-		assertEquals(responseBody.get("loansNr").getAsLong(), 0L);
+		assertEquals(responseBody.get("totalBookings").getAsLong(), 1L);
+		assertEquals(responseBody.get("totalLoans").getAsLong(), 0L);
 	}
 
 	

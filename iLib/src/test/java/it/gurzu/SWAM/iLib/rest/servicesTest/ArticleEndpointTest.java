@@ -21,6 +21,8 @@ import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
 import it.gurzu.swam.iLib.dto.ArticleDTO;
 import it.gurzu.swam.iLib.dto.ArticleType;
+import it.gurzu.swam.iLib.dto.BookingDTO;
+import it.gurzu.swam.iLib.dto.LoanDTO;
 import it.gurzu.swam.iLib.model.ArticleState;
 import it.gurzu.swam.iLib.model.Book;
 import it.gurzu.swam.iLib.model.BookingState;
@@ -557,7 +559,7 @@ public class ArticleEndpointTest extends ServiceTest {
 	private static ArticleDTO createArticleDTO(Long id, ArticleType type, String location, String title,
 			LocalDate yearEdition, String publisher, String genre, String description, ArticleState state,
 			String author, String isbn, Integer issueNumber, String issn, String director, String isan,
-			LocalDate loanDueDate, LocalDate bookingEndDate) {
+			BookingDTO bookingDTO, LoanDTO loanDTO) {
 		ArticleDTO articleDTO = new ArticleDTO();
 		articleDTO.setId(id);
 		articleDTO.setType(type);
@@ -574,8 +576,8 @@ public class ArticleEndpointTest extends ServiceTest {
 		articleDTO.setIssn(issn);
 		articleDTO.setDirector(director);
 		articleDTO.setIsan(isan);
-		articleDTO.setLoanDueDate(loanDueDate);
-		articleDTO.setBookingEndDate(bookingEndDate);
+		articleDTO.setLoanDTO(loanDTO);
+		articleDTO.setBookingDTO(bookingDTO);
 		return articleDTO;
 	}
 

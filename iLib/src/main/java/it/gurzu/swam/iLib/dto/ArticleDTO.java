@@ -39,8 +39,8 @@ public class ArticleDTO {
     private String issn;
     private String director;
     private String isan;
-    private LocalDate loanDueDate;
-    private LocalDate bookingEndDate;
+    private BookingDTO bookingDTO;
+    private LoanDTO loanDTO;
     		
     public ArticleDTO() {}
     
@@ -134,21 +134,21 @@ public class ArticleDTO {
 	public void setIsan(String isan) {
 		this.isan = isan;
 	}
-	
-    public LocalDate getLoanDueDate() {
-		return loanDueDate;
+
+	public BookingDTO getBookingDTO() {
+		return bookingDTO;
 	}
 
-	public void setLoanDueDate(LocalDate loanDueDate) {
-		this.loanDueDate = loanDueDate;
+	public void setBookingDTO(BookingDTO bookingDTO) {
+		this.bookingDTO = bookingDTO;
 	}
 
-	public LocalDate getBookingEndDate() {
-		return bookingEndDate;
+	public LoanDTO getLoanDTO() {
+		return loanDTO;
 	}
 
-	public void setBookingEndDate(LocalDate bookingEndDate) {
-		this.bookingEndDate = bookingEndDate;
+	public void setLoanDTO(LoanDTO loanDTO) {
+		this.loanDTO = loanDTO;
 	}
 	
 }

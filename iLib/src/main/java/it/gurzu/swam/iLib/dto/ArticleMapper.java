@@ -1,7 +1,5 @@
 package it.gurzu.swam.iLib.dto;
 
-import java.time.LocalDate;
-
 import it.gurzu.swam.iLib.model.Article;
 import it.gurzu.swam.iLib.model.Book;
 import it.gurzu.swam.iLib.model.Magazine;
@@ -10,7 +8,7 @@ import it.gurzu.swam.iLib.model.MovieDVD;
 
 public class ArticleMapper {
 
-	public static ArticleDTO toDTO(Article article, LocalDate loanDueDate, LocalDate bookingEndDate) {
+	public static ArticleDTO toDTO(Article article, LoanDTO loanDTO, BookingDTO bookingDTO) {
 		if(article == null)
 			return null;
 		
@@ -23,8 +21,8 @@ public class ArticleMapper {
 		dto.setGenre(article.getGenre());
 		dto.setDescription(article.getDescription());
 		dto.setState(article.getState());
-		dto.setLoanDueDate(loanDueDate);
-		dto.setBookingEndDate(bookingEndDate);
+		dto.setBookingDTO(bookingDTO);
+		dto.setLoanDTO(loanDTO);
 		
 		if(article instanceof Book) {
 			Book book = (Book) article;

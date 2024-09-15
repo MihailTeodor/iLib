@@ -12,6 +12,8 @@ import org.junit.jupiter.api.Test;
 import it.gurzu.swam.iLib.dto.ArticleDTO;
 import it.gurzu.swam.iLib.dto.ArticleMapper;
 import it.gurzu.swam.iLib.dto.ArticleType;
+import it.gurzu.swam.iLib.dto.BookingDTO;
+import it.gurzu.swam.iLib.dto.LoanDTO;
 import it.gurzu.swam.iLib.model.Article;
 import it.gurzu.swam.iLib.model.ArticleState;
 import it.gurzu.swam.iLib.model.Book;
@@ -35,10 +37,10 @@ public class ArticleDTOTest {
         book.setDescription("description");
         book.setState(ArticleState.AVAILABLE);
         
-        LocalDate loanDueDate = LocalDate.of(2024, 2, 1);
-        LocalDate bookingEndDate = LocalDate.of(2024, 3, 1);
+        BookingDTO bookingDTO = new BookingDTO();
+        LoanDTO loanDTO = new LoanDTO();
         
-        ArticleDTO dto = ArticleMapper.toDTO(book, loanDueDate, bookingEndDate);
+        ArticleDTO dto = ArticleMapper.toDTO(book, loanDTO, bookingDTO);
         
         assertNotNull(dto);
         assertEquals("title", dto.getTitle());
@@ -51,8 +53,8 @@ public class ArticleDTOTest {
         assertEquals(yearEdition, dto.getYearEdition());
         assertEquals("description", dto.getDescription());
         assertEquals(ArticleState.AVAILABLE, dto.getState());
-        assertEquals(loanDueDate, dto.getLoanDueDate());
-        assertEquals(bookingEndDate, dto.getBookingEndDate());
+        assertEquals(loanDTO, dto.getLoanDTO());
+        assertEquals(bookingDTO, dto.getBookingDTO());
     }
 
     @Test
@@ -69,10 +71,10 @@ public class ArticleDTOTest {
         magazine.setDescription("description");
         magazine.setState(ArticleState.AVAILABLE);
 
-        LocalDate loanDueDate = LocalDate.of(2024, 2, 1);
-        LocalDate bookingEndDate = LocalDate.of(2024, 3, 1);
-
-        ArticleDTO dto = ArticleMapper.toDTO(magazine, loanDueDate, bookingEndDate);
+        BookingDTO bookingDTO = new BookingDTO();
+        LoanDTO loanDTO = new LoanDTO();
+        
+        ArticleDTO dto = ArticleMapper.toDTO(magazine, loanDTO, bookingDTO);
         
         assertNotNull(dto);
         assertEquals(Integer.valueOf(1), dto.getIssueNumber());
@@ -85,8 +87,8 @@ public class ArticleDTOTest {
         assertEquals(yearEdition, dto.getYearEdition());
         assertEquals("description", dto.getDescription());
         assertEquals(ArticleState.AVAILABLE, dto.getState());
-        assertEquals(loanDueDate, dto.getLoanDueDate());
-        assertEquals(bookingEndDate, dto.getBookingEndDate());
+        assertEquals(loanDTO, dto.getLoanDTO());
+        assertEquals(bookingDTO, dto.getBookingDTO());
     }
 
     @Test
@@ -103,10 +105,10 @@ public class ArticleDTOTest {
         movieDVD.setDescription("description");
         movieDVD.setState(ArticleState.AVAILABLE);
 
-        LocalDate loanDueDate = LocalDate.of(2024, 2, 1);
-        LocalDate bookingEndDate = LocalDate.of(2024, 3, 1);
-
-        ArticleDTO dto = ArticleMapper.toDTO(movieDVD, loanDueDate, bookingEndDate);
+        BookingDTO bookingDTO = new BookingDTO();
+        LoanDTO loanDTO = new LoanDTO();
+        
+        ArticleDTO dto = ArticleMapper.toDTO(movieDVD, loanDTO, bookingDTO);
 
         assertNotNull(dto);
         assertEquals("director", dto.getDirector());
@@ -119,8 +121,8 @@ public class ArticleDTOTest {
         assertEquals(yearEdition, dto.getYearEdition());
         assertEquals("description", dto.getDescription());
         assertEquals(ArticleState.AVAILABLE, dto.getState());
-        assertEquals(loanDueDate, dto.getLoanDueDate());
-        assertEquals(bookingEndDate, dto.getBookingEndDate());
+        assertEquals(loanDTO, dto.getLoanDTO());
+        assertEquals(bookingDTO, dto.getBookingDTO());
     }
 
     @Test

@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.stream.Stream;
 
 import org.apache.commons.lang3.reflect.FieldUtils;
@@ -25,6 +26,7 @@ import org.mockito.ArgumentCaptor;
 import it.gurzu.swam.iLib.controllers.BookingController;
 import it.gurzu.swam.iLib.dao.ArticleDao;
 import it.gurzu.swam.iLib.dao.BookingDao;
+import it.gurzu.swam.iLib.dao.LoanDao;
 import it.gurzu.swam.iLib.dao.UserDao;
 import it.gurzu.swam.iLib.dto.BookingDTO;
 import it.gurzu.swam.iLib.exceptions.ArticleDoesNotExistException;
@@ -36,6 +38,8 @@ import it.gurzu.swam.iLib.model.Article;
 import it.gurzu.swam.iLib.model.ArticleState;
 import it.gurzu.swam.iLib.model.Booking;
 import it.gurzu.swam.iLib.model.BookingState;
+import it.gurzu.swam.iLib.model.Loan;
+import it.gurzu.swam.iLib.model.LoanState;
 import it.gurzu.swam.iLib.model.User;
 
 public class BookingControllerTest {
@@ -43,6 +47,7 @@ public class BookingControllerTest {
 	private BookingDao bookingDaoMock;
 	private UserDao userDaoMock;
 	private ArticleDao articleDaoMock;
+	private LoanDao loanDaoMock;
 	
 	private final LocalDate today = LocalDate.now();
 
@@ -53,10 +58,12 @@ public class BookingControllerTest {
 		bookingDaoMock = mock(BookingDao.class);
 		userDaoMock = mock(UserDao.class);
 		articleDaoMock = mock(ArticleDao.class);
+		loanDaoMock = mock(LoanDao.class);
 		
 		FieldUtils.writeField(bookingController, "bookingDao", bookingDaoMock, true);
 		FieldUtils.writeField(bookingController, "userDao", userDaoMock, true);
 		FieldUtils.writeField(bookingController, "articleDao", articleDaoMock, true);
+		FieldUtils.writeField(bookingController, "loanDao", loanDaoMock, true);
 	}
 	
 	
@@ -106,6 +113,25 @@ public class BookingControllerTest {
 			assertEquals("Cannot register Booking, specified Article is UNAVAILABLE!", thrownException.getMessage());			
     }
 	
+    @ParameterizedTest
+    @EnumSource(value = LoanState.class, names = {"ACTIVE", "OVERDUE"})
+    public void testRegisterBooking_WhenUserHasArticleOnLoan_ThrowsInvalidOperationException(LoanState state) {
+        User user = mock(User.class);
+        Article article = mock(Article.class);
+        Loan loan = mock(Loan.class);
+
+        when(userDaoMock.findById(1L)).thenReturn(user);
+        when(articleDaoMock.findById(1L)).thenReturn(article);
+        when(article.getState()).thenReturn(ArticleState.ONLOAN);
+        when(loan.getState()).thenReturn(state);
+        when(loanDaoMock.searchLoans(user, article, 0, 1)).thenReturn(List.of(loan));
+
+		Exception thrownException = assertThrows(InvalidOperationException.class, ()->{
+			bookingController.registerBooking(1L, 1L);
+			
+		});
+		assertEquals("Cannot register Booking, selected user has selected Article currently on loan!", thrownException.getMessage());			
+    }
 	
     @ParameterizedTest
     @MethodSource("testRegisterBooking_SuccessfulRegistrationArgumentsProvider")

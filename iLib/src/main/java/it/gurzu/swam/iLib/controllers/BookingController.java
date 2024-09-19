@@ -5,6 +5,7 @@ import java.util.List;
 
 import it.gurzu.swam.iLib.dao.ArticleDao;
 import it.gurzu.swam.iLib.dao.BookingDao;
+import it.gurzu.swam.iLib.dao.LoanDao;
 import it.gurzu.swam.iLib.dao.UserDao;
 import it.gurzu.swam.iLib.dto.BookingDTO;
 import it.gurzu.swam.iLib.exceptions.ArticleDoesNotExistException;
@@ -16,6 +17,8 @@ import it.gurzu.swam.iLib.model.Article;
 import it.gurzu.swam.iLib.model.ArticleState;
 import it.gurzu.swam.iLib.model.Booking;
 import it.gurzu.swam.iLib.model.BookingState;
+import it.gurzu.swam.iLib.model.Loan;
+import it.gurzu.swam.iLib.model.LoanState;
 import it.gurzu.swam.iLib.model.ModelFactory;
 import it.gurzu.swam.iLib.model.User;
 import jakarta.enterprise.inject.Model;
@@ -29,6 +32,9 @@ public class BookingController {
 	
 	@Inject
 	private BookingDao bookingDao;
+	
+	@Inject
+	private LoanDao loanDao;
 	
 	@Inject
 	private UserDao userDao;
@@ -61,6 +67,9 @@ public class BookingController {
 			bookedArticle.setState(ArticleState.BOOKED);
 			break;
 		case ONLOAN:
+			List<Loan> existingLoans = loanDao.searchLoans(bookingUser, bookedArticle, 0, 1);
+			if (!(existingLoans.isEmpty()) && (existingLoans.get(0).getState() == LoanState.ACTIVE || existingLoans.get(0).getState() == LoanState.OVERDUE))
+				throw new InvalidOperationException("Cannot register Booking, selected user has selected Article currently on loan!");
 			bookedArticle.setState(ArticleState.ONLOANBOOKED);
 			break;
 		}

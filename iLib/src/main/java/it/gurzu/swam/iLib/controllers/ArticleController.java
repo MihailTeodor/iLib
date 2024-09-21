@@ -198,19 +198,23 @@ public class ArticleController {
 		case BOOKED:
 			bookings = bookingDao.searchBookings(null, article, 0, 1);
 			bookings.get(0).validateState();
+			bookingDao.save(bookings.get(0));
 			bookingDTO = new BookingDTO(bookings.get(0));
 			break;
 		case ONLOAN:
 			loans = loanDao.searchLoans(null, article, 0, 1);
 			loans.get(0).validateState();
+			loanDao.save(loans.get(0));
 			loanDTO = new LoanDTO(loans.get(0));
 			break;
 		case ONLOANBOOKED:
 			bookings = bookingDao.searchBookings(null, article, 0, 1);
 			bookings.get(0).validateState();
+			bookingDao.save(bookings.get(0));
 			bookingDTO = new BookingDTO(bookings.get(0));
 			loans = loanDao.searchLoans(null, article, 0, 1);
 			loans.get(0).validateState();
+			loanDao.save(loans.get(0));
 			loanDTO = new LoanDTO(loans.get(0));
 		default:
 			break;

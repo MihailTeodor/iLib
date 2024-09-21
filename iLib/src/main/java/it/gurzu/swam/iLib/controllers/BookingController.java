@@ -92,8 +92,10 @@ public class BookingController {
 		if(booking == null)
 			throw new BookingDoesNotExistException("Specified Booking not registered in the system!");
 		
-		if(booking.getState() == BookingState.ACTIVE)
+		if(booking.getState() == BookingState.ACTIVE) {
 			booking.validateState();
+			bookingDao.save(booking);
+		}
 		
 		return new BookingDTO(booking);
 	}
@@ -124,8 +126,10 @@ public class BookingController {
 			throw new SearchHasGivenNoResultsException("No bookings relative to the specified user found!");
 		
 		for(Booking booking : userBookings)
-			if(booking.getState() == BookingState.ACTIVE)
+			if(booking.getState() == BookingState.ACTIVE) {
 				booking.validateState();
+				bookingDao.save(booking);
+			}
 		return userBookings;
 	}
 	

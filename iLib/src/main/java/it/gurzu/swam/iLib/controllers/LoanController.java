@@ -123,8 +123,10 @@ public class LoanController {
 		if(loan == null)
 			throw new LoanDoesNotExistException("Specified Loan not registered in the system!");
 		
-		if(loan.getState() == LoanState.ACTIVE)
+		if(loan.getState() == LoanState.ACTIVE) {
 			loan.validateState();
+			loanDao.save(loan);
+		}
 		
 		return new LoanDTO(loan);
 	}
@@ -142,8 +144,10 @@ public class LoanController {
 			throw new LoanDoesNotExistException("No loans relative to the specified user found!");
 		
 		for(Loan loan : userLoans)
-			if(loan.getState() == LoanState.ACTIVE)
+			if(loan.getState() == LoanState.ACTIVE) {
 				loan.validateState();
+				loanDao.save(loan);
+			}
 		
 		return userLoans;
 	}

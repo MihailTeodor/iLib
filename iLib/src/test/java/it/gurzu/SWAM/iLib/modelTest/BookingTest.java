@@ -42,10 +42,11 @@ public class BookingTest {
 	}
 	
 	@Test
-	public void testValidateState_WhenBookingEndDatePassed_ChangesArticleAndBookingStateAccordingly() {
+	public void testValidateState_WhenBookingEndDatePassedAndArticleStateIsBOOKED_ChangesArticleAndBookingStateAccordingly() {
 		booking.setState(BookingState.ACTIVE);
 		LocalDate today = LocalDate.now();
 		booking.setBookingEndDate(today.plusDays(-1));
+		article.setState(ArticleState.BOOKED);
 		
 		try {
 			booking.validateState();
@@ -54,9 +55,26 @@ public class BookingTest {
 		}
 		
 		assertEquals(ArticleState.AVAILABLE, booking.getBookedArticle().getState());
-		assertEquals(BookingState.CANCELLED, booking.getState());
+		assertEquals(BookingState.EXPIRED, booking.getState());
 	}
 	
+	@Test
+	public void testValidateState_WhenBookingEndDatePassedAndArticleStateIsUNAVAILABLE_ChangesOnlyBookingStateAccordingly() {
+		booking.setState(BookingState.ACTIVE);
+		LocalDate today = LocalDate.now();
+		booking.setBookingEndDate(today.plusDays(-1));
+		article.setState(ArticleState.UNAVAILABLE);
+		
+		try {
+			booking.validateState();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		assertEquals(ArticleState.UNAVAILABLE, booking.getBookedArticle().getState());
+		assertEquals(BookingState.EXPIRED, booking.getState());
+	}
+
 	@Test
 	public void testValidateState_WhenBookingEndDateNotPassed_DoesNotChangeState() {
 		booking.setState(BookingState.ACTIVE);

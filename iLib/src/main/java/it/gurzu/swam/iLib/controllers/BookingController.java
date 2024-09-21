@@ -71,6 +71,7 @@ public class BookingController {
 			if (!(existingLoans.isEmpty()) && (existingLoans.get(0).getState() == LoanState.ACTIVE || existingLoans.get(0).getState() == LoanState.OVERDUE))
 				throw new InvalidOperationException("Cannot register Booking, selected user has selected Article currently on loan!");
 			bookedArticle.setState(ArticleState.ONLOANBOOKED);
+			bookingToRegister.setBookingEndDate(loanDao.searchLoans(null, bookedArticle, 0, 1).get(0).getDueDate().plusDays(3));
 			break;
 		}
 		

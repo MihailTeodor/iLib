@@ -138,10 +138,13 @@ public class BookingControllerTest {
     public void testRegisterBooking_SuccessfulRegistration(ArticleState initialState, ArticleState expectedState) {
         User user = mock(User.class);
         Article article = mock(Article.class);
+        Loan loan = mock(Loan.class);
 
         when(userDaoMock.findById(1L)).thenReturn(user);
         when(articleDaoMock.findById(1L)).thenReturn(article);
         when(article.getState()).thenReturn(initialState);
+        when(loan.getDueDate()).thenReturn(today.plusMonths(1));
+        when(loanDaoMock.searchLoans(null, article, 0, 1)).thenReturn(List.of(loan));
 
         Long returnedId = bookingController.registerBooking(1L, 1L);
 
@@ -157,6 +160,8 @@ public class BookingControllerTest {
 
         if (initialState == ArticleState.AVAILABLE) {
             assertEquals(today.plusDays(3), registeredBooking.getBookingEndDate());
+        } else {
+            assertEquals(loan.getDueDate().plusDays(3), registeredBooking.getBookingEndDate());
         }
     }
 	

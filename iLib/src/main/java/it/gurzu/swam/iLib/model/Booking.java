@@ -86,8 +86,11 @@ public class Booking extends BaseEntity {
 		if(this.state == BookingState.ACTIVE) {
 			LocalDate today = LocalDate.now();
 			if(this.getBookingEndDate().isBefore(today)) {
-				this.getBookedArticle().setState(ArticleState.AVAILABLE);
-				this.setState(BookingState.CANCELLED);
+				this.setState(BookingState.EXPIRED);
+				// at this point, the state of the booked article can be only one of {UNAVAILABLE, BOOKED}
+				if(this.getBookedArticle().getState() == ArticleState.BOOKED) {
+					this.getBookedArticle().setState(ArticleState.AVAILABLE);
+				}
 			}			
 		}else
 			throw new IllegalArgumentException("The Booking state is not ACTIVE!");

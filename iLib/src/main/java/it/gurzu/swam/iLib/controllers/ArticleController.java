@@ -4,6 +4,8 @@ import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
 
+import org.apache.commons.lang3.StringUtils;
+
 import it.gurzu.swam.iLib.dao.ArticleDao;
 import it.gurzu.swam.iLib.dao.BookDao;
 import it.gurzu.swam.iLib.dao.BookingDao;
@@ -72,9 +74,9 @@ public class ArticleController {
 		if (articleDTO.getType() == ArticleType.BOOK) {
 			if (!(articleToUpdate instanceof Book))
 				throw new IllegalArgumentException("Cannot change type of Article");
-			if (articleDTO.getIsbn() == null)
+			if (StringUtils.isBlank(articleDTO.getIsbn()))
 				throw new IllegalArgumentException("Article identifier is required");
-			if (articleDTO.getAuthor() == null)
+			if (StringUtils.isBlank(articleDTO.getAuthor()))
 				throw new IllegalArgumentException("Author is required!");
 
 			((Book) articleToUpdate).setIsbn(articleDTO.getIsbn());
@@ -84,7 +86,7 @@ public class ArticleController {
 		if (articleDTO.getType() == ArticleType.MAGAZINE) {
 			if (!(articleToUpdate instanceof Magazine))
 				throw new IllegalArgumentException("Cannot change type of Article");
-			if (articleDTO.getIssn() == null)
+			if (StringUtils.isBlank(articleDTO.getIssn()))
 				throw new IllegalArgumentException("Article identifier is required");
 			if (articleDTO.getIssueNumber() == null)
 				throw new IllegalArgumentException("Issue number is required!");
@@ -96,9 +98,9 @@ public class ArticleController {
 		if (articleDTO.getType() == ArticleType.MOVIEDVD) {
 			if (!(articleToUpdate instanceof MovieDVD))
 				throw new IllegalArgumentException("Cannot change type of Article");
-			if (articleDTO.getIsan() == null)
+			if (StringUtils.isBlank(articleDTO.getIsan()))
 				throw new IllegalArgumentException("Article identifier is required");
-			if (articleDTO.getDirector() == null)
+			if (StringUtils.isBlank(articleDTO.getDirector()))
 				throw new IllegalArgumentException("Director is required!");
 
 			((MovieDVD) articleToUpdate).setIsan(articleDTO.getIsan());
@@ -127,11 +129,11 @@ public class ArticleController {
 			String publisher, LocalDate yearEdition, String author, Integer issueNumber, String director, int fromIndex,
 			int limit) {
 		List<? extends Article> retrievedArticles = Collections.emptyList();
-		if (isbn != null) {
+		if (!(StringUtils.isBlank(isbn))) {
 			retrievedArticles = bookDao.findBooksByIsbn(isbn);
-		} else if (issn != null) {
+		} else if (!(StringUtils.isBlank(issn))) {
 			retrievedArticles = magazineDao.findMagazinesByIssn(issn);
-		} else if (isan != null) {
+		} else if (!(StringUtils.isBlank(isan))) {
 			retrievedArticles = movieDVDDao.findMoviesByIsan(isan);
 		} else
 			retrievedArticles = articleDao.findArticles(title, genre, publisher, yearEdition, author, issueNumber,
@@ -145,11 +147,11 @@ public class ArticleController {
 
 	public Long countArticles(String isbn, String issn, String isan, String title, String genre, String publisher,
 			LocalDate yearEdition, String author, Integer issueNumber, String director) {
-		if (isbn != null) {
+		if (!(StringUtils.isBlank(isbn))) {
 			return bookDao.countBooksByIsbn(isbn);
-		} else if (issn != null) {
+		} else if (!(StringUtils.isBlank(issn))) {
 			return magazineDao.countMagazinesByIssn(issn);
-		} else if (isan != null) {
+		} else if (!(StringUtils.isBlank(isan))) {
 			return movieDVDDao.countMoviesByIsan(isan);
 		} else {
 			return articleDao.countArticles(title, genre, publisher, yearEdition, author, issueNumber, director);

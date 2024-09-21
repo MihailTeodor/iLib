@@ -4,6 +4,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+import org.apache.commons.lang3.StringUtils;
+
 import it.gurzu.swam.iLib.dao.UserDao;
 import it.gurzu.swam.iLib.dto.UserDTO;
 import it.gurzu.swam.iLib.dto.UserDashboardDTO;
@@ -42,7 +44,7 @@ public class UserController {
 		if(tmpUser != null)
 			throw new IllegalArgumentException("Email already registered!");
 		
-		if(userDTO.getPlainPassword() == null)
+		if(StringUtils.isBlank(userDTO.getPlainPassword()))
 			throw new IllegalArgumentException("Password is required!");
 		
 		User userToAdd = userDTO.toEntity();
@@ -60,7 +62,7 @@ public class UserController {
 		if(userToUpdate == null)
 			throw new UserDoesNotExistException("User does not exist!");
 		
-		if(userDTO.getPlainPassword() != null)
+		if(!(StringUtils.isBlank(userDTO.getPlainPassword())))
 			userToUpdate.setPassword(PasswordUtils.hashPassword(userDTO.getPlainPassword()));
 		
 		userToUpdate.setEmail(userDTO.getEmail());
@@ -76,7 +78,7 @@ public class UserController {
 	public List<User> searchUsers(String email, String name, String surname, String telephoneNumber, int fromIndex, int limit) {
 		List<User> retrievedUsers = Collections.emptyList();
 		try {
-			if(email != null) {
+			if(!(StringUtils.isBlank(email))) {
 				retrievedUsers = Arrays.asList(userDao.findUsersByEmail(email));
 			}
 			else {
@@ -92,7 +94,7 @@ public class UserController {
 	
 	
 	public Long countUsers(String email, String name, String surname, String telephoneNumber) {
-			return email == null ? userDao.countUsers(name, surname, telephoneNumber) : 1;
+			return StringUtils.isBlank(email) ? userDao.countUsers(name, surname, telephoneNumber) : 1;
 	}
 	
 	

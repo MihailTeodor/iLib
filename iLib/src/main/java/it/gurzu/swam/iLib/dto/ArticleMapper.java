@@ -1,5 +1,7 @@
 package it.gurzu.swam.iLib.dto;
 
+import org.apache.commons.lang3.StringUtils;
+
 import it.gurzu.swam.iLib.model.Article;
 import it.gurzu.swam.iLib.model.Book;
 import it.gurzu.swam.iLib.model.Magazine;
@@ -60,10 +62,10 @@ public class ArticleMapper {
     }
 
     private Book createBook(ArticleDTO dto) {
-    	if(dto.getIsbn() == null)
+    	if(StringUtils.isBlank(dto.getIsbn()))
         	throw new IllegalArgumentException("Article identifier is required");
 
-    	if(dto.getAuthor() == null)
+    	if(StringUtils.isBlank(dto.getAuthor()))
     		throw new IllegalArgumentException("Author is required");
     	
         Book book = ModelFactory.book();
@@ -80,7 +82,7 @@ public class ArticleMapper {
     }
 
     private Magazine createMagazine(ArticleDTO dto) {
-    	if(dto.getIssn() == null)
+    	if(StringUtils.isBlank(dto.getIssn()))
         	throw new IllegalArgumentException("Article identifier is required");
 
     	if(dto.getIssueNumber() == null)
@@ -100,10 +102,10 @@ public class ArticleMapper {
     }
 
     private MovieDVD createMovieDVD(ArticleDTO dto) {
-    	if(dto.getIsan() == null)
+    	if(StringUtils.isBlank(dto.getIsan()))
         	throw new IllegalArgumentException("Article identifier is required");
 
-    	if(dto.getDirector() == null)
+    	if(StringUtils.isBlank(dto.getDirector()))
     		throw new IllegalArgumentException("Director is required");
     	
         MovieDVD movieDVD = ModelFactory.movieDVD();

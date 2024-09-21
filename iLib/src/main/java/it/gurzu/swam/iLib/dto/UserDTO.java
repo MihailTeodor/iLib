@@ -1,5 +1,7 @@
 package it.gurzu.swam.iLib.dto;
 
+import org.apache.commons.lang3.StringUtils;
+
 import it.gurzu.swam.iLib.model.ModelFactory;
 import it.gurzu.swam.iLib.model.User;
 import it.gurzu.swam.iLib.utils.PasswordUtils;
@@ -44,7 +46,7 @@ public class UserDTO {
     public User toEntity() {
     	User user = ModelFactory.user();
     	
-    	if(this.plainPassword != null)
+    	if(!(StringUtils.isBlank(this.plainPassword)))
     		user.setPassword(PasswordUtils.hashPassword(this.plainPassword));
 
     	user.setEmail(this.email);

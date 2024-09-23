@@ -377,7 +377,21 @@ public class LoanControllerTest {
 		});
 		assertEquals("Cannot extend Loan! Loan does not exist!", thrownException.getMessage());					
 	}
-	
+
+	@ParameterizedTest
+	@EnumSource(value = LoanState.class, names = {"RETURNED", "OVERDUE"})
+	public void testExtendLoan_WhenLoanExistsButNotActive_ThrowsInvalidOperationException(LoanState state) {
+		Loan mockLoanToExtend = mock(Loan.class);
+		
+		when(loanDaoMock.findById(1L)).thenReturn(mockLoanToExtend);
+		when(mockLoanToExtend.getState()).thenReturn(state);
+		
+		Exception thrownException = assertThrows(InvalidOperationException.class, ()->{
+			loanController.extendLoan(1L);
+			
+		});
+		assertEquals("Cannot extend loan, selected loan is not Active!", thrownException.getMessage());					
+	}
 	
 	@Test
 	public void testExtendLoan_WhenLoanExistsButBookedByAnotherUser_ThrowsInvalidOperationException() {
@@ -385,6 +399,7 @@ public class LoanControllerTest {
 		Article mockArticle = mock(Article.class);
 		
 		when(loanDaoMock.findById(1L)).thenReturn(mockLoanToExtend);
+		when(mockLoanToExtend.getState()).thenReturn(LoanState.ACTIVE);
 		when(mockLoanToExtend.getArticleOnLoan()).thenReturn(mockArticle);
 		when(mockArticle.getState()).thenReturn(ArticleState.ONLOANBOOKED);
 		
@@ -395,19 +410,39 @@ public class LoanControllerTest {
 		assertEquals("Cannot extend loan, another User has booked the Article!", thrownException.getMessage());					
 	}
 	
-	
 	@Test
-	public void testExtendLoan_WhenLoanExistsAndNotBookedByAnotherUser_UpdatesDueDate() {
+	public void testExtendLoan_WhenLoanAlreadyRenewed_ThrowsInvalidOperationException() {
 		Loan mockLoanToExtend = mock(Loan.class);
 		Article mockArticle = mock(Article.class);
 		
 		when(loanDaoMock.findById(1L)).thenReturn(mockLoanToExtend);
 		when(mockLoanToExtend.getArticleOnLoan()).thenReturn(mockArticle);
+		when(mockLoanToExtend.isRenewed()).thenReturn(true);
+		when(mockLoanToExtend.getState()).thenReturn(LoanState.ACTIVE);
+		when(mockArticle.getState()).thenReturn(ArticleState.ONLOAN);
+		
+		Exception thrownException = assertThrows(InvalidOperationException.class, ()->{
+			loanController.extendLoan(1L);
+			
+		});
+		assertEquals("Cannot extend loan, loan has already been renewed!", thrownException.getMessage());					
+	}
+
+	
+	@Test
+	public void testExtendLoan_WhenLoanExistsAndNotBookedByAnotherUser_UpdatesDueDateAndSetsRenewedToTrue() {
+		Loan mockLoanToExtend = mock(Loan.class);
+		Article mockArticle = mock(Article.class);
+		
+		when(loanDaoMock.findById(1L)).thenReturn(mockLoanToExtend);
+		when(mockLoanToExtend.getArticleOnLoan()).thenReturn(mockArticle);
+		when(mockLoanToExtend.getState()).thenReturn(LoanState.ACTIVE);
 		when(mockArticle.getState()).thenReturn(ArticleState.ONLOAN);
 		
 		loanController.extendLoan(1L);
 		
 		verify(mockLoanToExtend).setDueDate(today.plusMonths(1));
+		verify(mockLoanToExtend).setRenewed(true);
 	}
 	
 	@Test

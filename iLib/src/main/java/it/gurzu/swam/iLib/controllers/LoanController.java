@@ -157,11 +157,17 @@ public class LoanController {
 		
 		if(loanToExtend == null)
 			throw new LoanDoesNotExistException("Cannot extend Loan! Loan does not exist!");
-
-		if(loanToExtend.getArticleOnLoan().getState() == ArticleState.ONLOAN)
-			loanToExtend.setDueDate(today.plusMonths(1));
-		else
+		if(loanToExtend.getState() != LoanState.ACTIVE)
+			throw new InvalidOperationException("Cannot extend loan, selected loan is not Active!");
+		if(loanToExtend.getArticleOnLoan().getState() == ArticleState.ONLOANBOOKED)
 			throw new InvalidOperationException("Cannot extend loan, another User has booked the Article!");
+		if(loanToExtend.isRenewed()) 
+			throw new InvalidOperationException("Cannot extend loan, loan has already been renewed!");
+		else{
+			loanToExtend.setDueDate(today.plusMonths(1));
+			loanToExtend.setRenewed(true);			
+		}
+		loanDao.save(loanToExtend);
 	}
 	
 	public Long countLoansByUser(Long userId) {

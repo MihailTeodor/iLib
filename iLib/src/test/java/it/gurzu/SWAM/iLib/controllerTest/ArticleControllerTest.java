@@ -457,6 +457,51 @@ public class ArticleControllerTest {
 		assertFalse(result.isEmpty());
 		assertEquals(expectedResult, result);
 	}
+	
+	@Test
+	void testSearchArticles_WhenArticleIsBooked_PerformsValidateState() {
+		Book mockBook = mock(Book.class);
+		Booking mockBooking = mock(Booking.class);
+		
+		when(mockBook.getState()).thenReturn(ArticleState.BOOKED);
+		when(articleDaoMock.findArticles(null, null, null, null, null, null, null, 0, 0)).thenReturn(List.of(mockBook));
+		when(bookingDaoMock.searchBookings(null, mockBook, 0, 1)).thenReturn(List.of(mockBooking));
+		
+		articleController.searchArticles(null, null, null, null, null, null, null, null, null, null, 0, 0);
+
+		verify(mockBooking).validateState();
+	}
+
+	@Test
+	void testSearchArticles_WhenArticleIsOnloan_PerformsValidateState() {
+		Book mockBook = mock(Book.class);
+		Loan mockLoan = mock(Loan.class);
+		
+		when(mockBook.getState()).thenReturn(ArticleState.ONLOAN);
+		when(articleDaoMock.findArticles(null, null, null, null, null, null, null, 0, 0)).thenReturn(List.of(mockBook));
+		when(loanDaoMock.searchLoans(null, mockBook, 0, 1)).thenReturn(List.of(mockLoan));
+		
+		articleController.searchArticles(null, null, null, null, null, null, null, null, null, null, 0, 0);
+
+		verify(mockLoan).validateState();
+	}
+
+	@Test
+	void testSearchArticles_WhenArticleIsOnloanBooked_PerformsValidateState() {
+		Book mockBook = mock(Book.class);
+		Booking mockBooking = mock(Booking.class);
+		Loan mockLoan = mock(Loan.class);
+		
+		when(mockBook.getState()).thenReturn(ArticleState.ONLOANBOOKED);
+		when(articleDaoMock.findArticles(null, null, null, null, null, null, null, 0, 0)).thenReturn(List.of(mockBook));
+		when(loanDaoMock.searchLoans(null, mockBook, 0, 1)).thenReturn(List.of(mockLoan));
+		when(bookingDaoMock.searchBookings(null, mockBook, 0, 1)).thenReturn(List.of(mockBooking));
+
+		articleController.searchArticles(null, null, null, null, null, null, null, null, null, null, 0, 0);
+
+		verify(mockLoan).validateState();
+		verify(mockBooking).validateState();
+	}
 
 	@Test
 	public void testCountArticles_WhenIsbnNotNull_PerformsCountBooksByIsbn() {

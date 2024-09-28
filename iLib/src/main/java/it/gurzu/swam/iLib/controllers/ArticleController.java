@@ -142,6 +142,18 @@ public class ArticleController {
 		if (retrievedArticles.isEmpty())
 			throw new SearchHasGivenNoResultsException("The search has given 0 results!");
 
+		for (Article article : retrievedArticles) {
+			ArticleState state = article.getState();
+			if(state == ArticleState.BOOKED) {
+				bookingDao.searchBookings(null, article, 0, 1).get(0).validateState();
+			}else if(state == ArticleState.ONLOAN) {
+				loanDao.searchLoans(null, article, 0, 1).get(0).validateState();
+			}else if(state == ArticleState.ONLOANBOOKED) {
+				bookingDao.searchBookings(null, article, 0, 1).get(0).validateState();
+				loanDao.searchLoans(null, article, 0, 1).get(0).validateState();
+			}
+		}
+		
 		return retrievedArticles;
 	}
 

@@ -356,9 +356,9 @@ public class ArticleEndpointTest extends ServiceTest {
 		QueryUtils.queryCreateBook(connection, 1L, "Shelf 1", "Book 1", LocalDate.now().minusYears(2), "Publisher 1",
 				"Fiction", "Description 1", ArticleState.AVAILABLE, "Author 1", "1234567890");
 		QueryUtils.queryCreateBook(connection, 2L, "Shelf 2", "Book 2", LocalDate.now().minusYears(1), "Publisher 2",
-				"Science", "Description 2", ArticleState.BOOKED, "Author 2", "0987654321");
+				"Science", "Description 2", ArticleState.AVAILABLE, "Author 2", "0987654321");
 		QueryUtils.queryCreateBook(connection, 3L, "Shelf 3", "Book 3", LocalDate.now(), "Publisher 3",
-				"History", "Description 3", ArticleState.ONLOAN, "Author 1", "1234509876");
+				"History", "Description 3", ArticleState.AVAILABLE, "Author 1", "1234509876");
 
 		request = RestAssured.given();
 		request.header("Authorization", "Bearer " + adminToken);

@@ -1,4 +1,4 @@
-package it.gurzu.SWAM.iLib.rest.servicesTest;
+package it.gurzu.SWAM.iLib.controllerTest;
 
 import java.sql.Connection;
 import java.sql.Date;

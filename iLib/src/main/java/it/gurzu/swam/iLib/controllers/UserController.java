@@ -1,125 +1,147 @@
 package it.gurzu.swam.iLib.controllers;
 
-import java.util.Arrays;
-import java.util.Collections;
+
 import java.util.List;
+import java.util.stream.Collectors;
 
-import org.apache.commons.lang3.StringUtils;
-
-import it.gurzu.swam.iLib.dao.UserDao;
+import it.gurzu.swam.iLib.dto.PaginationResponse;
 import it.gurzu.swam.iLib.dto.UserDTO;
 import it.gurzu.swam.iLib.dto.UserDashboardDTO;
 import it.gurzu.swam.iLib.exceptions.SearchHasGivenNoResultsException;
 import it.gurzu.swam.iLib.exceptions.UserDoesNotExistException;
-import it.gurzu.swam.iLib.model.Booking;
-import it.gurzu.swam.iLib.model.Loan;
-import it.gurzu.swam.iLib.model.User;
-import it.gurzu.swam.iLib.model.UserRole;
-import it.gurzu.swam.iLib.utils.PasswordUtils;
-import jakarta.enterprise.inject.Model;
+import it.gurzu.swam.iLib.rest.JWTUtil;
+import it.gurzu.swam.iLib.services.UserService;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
-import jakarta.transaction.Transactional;
+import jakarta.validation.Valid;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DefaultValue;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.PUT;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.SecurityContext;
 
-@Model
-@Transactional
+@Path("/usersEndpoint")
 public class UserController {
 
 	@Inject
-	private UserDao userDao;
+	private UserService userService;
 	
-	@Inject
-	private BookingController bookingController;
-	
-	@Inject
-	private LoanController loanController;
-	
-	
-	public Long addUser(UserDTO userDTO) {
-		User tmpUser = null;
-		try {
-			tmpUser = userDao.findUsersByEmail(userDTO.getEmail()); 
-		} catch (Exception e) {
-			tmpUser = null;
+	@GET
+	@Path("/{id}")
+	@Produces(MediaType.APPLICATION_JSON)
+	public Response getUserInfo(@Context SecurityContext securityContext, @PathParam("id") Long userId) {
+		Long loggedUserId = JWTUtil.getUserIdFromToken(securityContext.getUserPrincipal().getName());
+		if(!securityContext.isUserInRole("ADMINISTRATOR") && !loggedUserId.equals(userId)) {
+			return Response.status(Response.Status.FORBIDDEN).build();
 		}
-		if(tmpUser != null)
-			throw new IllegalArgumentException("Email already registered!");
 		
-		if(StringUtils.isBlank(userDTO.getPlainPassword()))
-			throw new IllegalArgumentException("Password is required!");
-		
-		User userToAdd = userDTO.toEntity();
-		userToAdd.setRole(UserRole.CITIZEN);
-
-		userDao.save(userToAdd);
-		
-		return userToAdd.getId();
+		try {
+			UserDashboardDTO userDto = userService.getUserInfoExtended(userId);
+			return Response.ok(userDto).build();
+		} catch (UserDoesNotExistException ex) {
+			return Response.status(Response.Status.NOT_FOUND)
+					.entity("{\"error\": \"" + ex.getMessage() +"\"}").build();
+		} catch (Exception e) {
+			return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+					.entity("{\"error\": \"An error occurred while retrieving the user information.\"}").build();
+		}
 	}
 
-	
-	public void updateUser(Long id, UserDTO userDTO) {
-		User userToUpdate = userDao.findById(id);
-		
-		if(userToUpdate == null)
-			throw new UserDoesNotExistException("User does not exist!");
-		
-		if(!(StringUtils.isBlank(userDTO.getPlainPassword())))
-			userToUpdate.setPassword(PasswordUtils.hashPassword(userDTO.getPlainPassword()));
-		
-		userToUpdate.setEmail(userDTO.getEmail());
-		userToUpdate.setName(userDTO.getName());
-		userToUpdate.setSurname(userDTO.getSurname());
-		userToUpdate.setAddress(userDTO.getAddress());
-		userToUpdate.setTelephoneNumber(userDTO.getTelephoneNumber());
-		
-		userDao.save(userToUpdate);
-	}
-	
+    @POST
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    @RolesAllowed("ADMINISTRATOR")
+    public Response createUser(@Valid UserDTO userDTO) {
+    	try {
+    		Long id = userService.addUser(userDTO);
+    		return Response.status(Response.Status.CREATED)
+    				.entity("{\"userId\": " + id + "}").build();
+		} catch (IllegalArgumentException e) {
+			return Response.status(Response.Status.BAD_REQUEST)
+					.entity("{\"error\": \"" + e.getMessage() +"\"}").build();
+		} catch (Exception e) {
+			return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+					.entity("{\"error\": \"An error occurred while registering the user.\"}").build();
+		} 
+    }
+    
+    
+    @PUT
+    @Path("/{userId}")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response updateUser(@Context SecurityContext securityContext, @PathParam("userId") Long userId, @Valid UserDTO userDTO) {
+		Long loggedUserId = JWTUtil.getUserIdFromToken(securityContext.getUserPrincipal().getName());
+		if(!securityContext.isUserInRole("ADMINISTRATOR") && !loggedUserId.equals(userId)) {
+			return Response.status(Response.Status.FORBIDDEN).build();
+		}
 
-	public List<User> searchUsers(String email, String name, String surname, String telephoneNumber, int fromIndex, int limit) {
-		List<User> retrievedUsers = Collections.emptyList();
-		try {
-			if(!(StringUtils.isBlank(email))) {
-				retrievedUsers = Arrays.asList(userDao.findUsersByEmail(email));
-			}
-			else {
-				retrievedUsers = userDao.findUsers(name, surname, telephoneNumber, fromIndex, limit);
-			}			
-		}catch (Exception e) {
-			retrievedUsers = Collections.emptyList();
-		}
-		if(retrievedUsers.isEmpty())
-			throw new SearchHasGivenNoResultsException("Search has given no results!");
-		return retrievedUsers;
-	}
-	
-	
-	public Long countUsers(String email, String name, String surname, String telephoneNumber) {
-			return StringUtils.isBlank(email) ? userDao.countUsers(name, surname, telephoneNumber) : 1;
-	}
-	
-	
-	public UserDashboardDTO getUserInfoExtended(Long id) {
-		User user = userDao.findById(id);
-		
-		if(user == null)
-			throw new UserDoesNotExistException("User does not exist!");
-		
-		List<Booking> bookings;
-		try {
-			bookings = bookingController.getBookingsByUser(user.getId(), 0, 5);			
+    	try {
+            userService.updateUser(userId, userDTO);
+			return Response.ok("{\"message\": \"User updated successfully.\"}").build();
+        } catch (UserDoesNotExistException e) {
+			return Response.status(Response.Status.NOT_FOUND)
+					.entity("{\"error\": \"" + e.getMessage() +"\"}").build();
 		} catch (Exception e) {
-			bookings = null;
-		}
-	
-		List<Loan> loans;
-		try {
-			loans = loanController.getLoansByUser(user.getId(), 0, 5);
+			return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+					.entity("{\"error\": \"An error occurred while updating the user.\"}").build();
+		} 
+    }    
+    
+
+    
+    @GET
+    @Produces(MediaType.APPLICATION_JSON)
+    @RolesAllowed("ADMINISTRATOR")
+    public Response searchUsers(@QueryParam("email") String email,
+                                @QueryParam("name") String name,
+                                @QueryParam("surname") String surname,
+                                @QueryParam("telephoneNumber") String telephoneNumber,
+                                @DefaultValue("1") @QueryParam("pageNumber") int pageNumber,
+                                @DefaultValue("10") @QueryParam("resultsPerPage") int resultsPerPage) {
+
+    	if((pageNumber < 1) || (resultsPerPage < 0))
+			return Response.status(Response.Status.BAD_REQUEST)
+					.entity("{\"error\": \"Pagination parameters incorrect!\"}").build();
+
+    	try {
+    		long totalResults = userService.countUsers(email, name, surname, telephoneNumber);
+    		int totalPages = (int) Math.ceil((double) totalResults / resultsPerPage);
+    		
+    		if(pageNumber > totalPages) {
+    			pageNumber = totalPages == 0 ? 1 : totalPages;
+    		}
+    		
+    		int fromIndex = (pageNumber - 1) * resultsPerPage;
+    		List<UserDTO> userDTOs = userService.searchUsers(email, name, surname, telephoneNumber, fromIndex, resultsPerPage)
+            									   .stream()
+            									   .map(UserDTO::new)
+            									   .collect(Collectors.toList());
+
+            PaginationResponse<UserDTO> response = new PaginationResponse<>(
+                    userDTOs,
+                    pageNumber,
+                    resultsPerPage,
+                    totalResults,
+                    totalPages
+            );
+            
+            return Response.ok(response).build();
+		} catch (SearchHasGivenNoResultsException e) {
+			return Response.status(Response.Status.NOT_FOUND)
+					.entity("{\"error\": \"" + e.getMessage() +"\"}").build();
 		} catch (Exception e) {
-			loans = null;
-		}
-		
-		Long totalBookings = bookingController.countBookingsByUser(id);
-		Long totalLoans = loanController.countLoansByUser(id);
-		return new UserDashboardDTO(user, bookings, loans, totalBookings, totalLoans);
-	}
+			return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+					.entity("{\"error\": \"An error occurred during user search.\"}").build();
+		} 
+    }
+
 }

@@ -1,144 +1,162 @@
 package it.gurzu.swam.iLib.controllers;
 
-import java.time.LocalDate;
 import java.util.List;
+import java.util.stream.Collectors;
 
-import it.gurzu.swam.iLib.dao.ArticleDao;
-import it.gurzu.swam.iLib.dao.BookingDao;
-import it.gurzu.swam.iLib.dao.LoanDao;
-import it.gurzu.swam.iLib.dao.UserDao;
 import it.gurzu.swam.iLib.dto.BookingDTO;
+import it.gurzu.swam.iLib.dto.PaginationResponse;
 import it.gurzu.swam.iLib.exceptions.ArticleDoesNotExistException;
 import it.gurzu.swam.iLib.exceptions.BookingDoesNotExistException;
 import it.gurzu.swam.iLib.exceptions.InvalidOperationException;
 import it.gurzu.swam.iLib.exceptions.SearchHasGivenNoResultsException;
 import it.gurzu.swam.iLib.exceptions.UserDoesNotExistException;
-import it.gurzu.swam.iLib.model.Article;
-import it.gurzu.swam.iLib.model.ArticleState;
-import it.gurzu.swam.iLib.model.Booking;
-import it.gurzu.swam.iLib.model.BookingState;
-import it.gurzu.swam.iLib.model.Loan;
-import it.gurzu.swam.iLib.model.LoanState;
-import it.gurzu.swam.iLib.model.ModelFactory;
-import it.gurzu.swam.iLib.model.User;
-import jakarta.enterprise.inject.Model;
+import it.gurzu.swam.iLib.rest.JWTUtil;
+import it.gurzu.swam.iLib.services.BookingService;
 import jakarta.inject.Inject;
-import jakarta.transaction.Transactional;
-import jakarta.transaction.Transactional.TxType;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DefaultValue;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.PATCH;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.SecurityContext;
 
-@Model
-@Transactional
+@Path("/bookingsEndpoint")
 public class BookingController {
-	
-	@Inject
-	private BookingDao bookingDao;
-	
-	@Inject
-	private LoanDao loanDao;
-	
-	@Inject
-	private UserDao userDao;
-	
-	@Inject
-	private ArticleDao articleDao;
-	
-	private final LocalDate today = LocalDate.now();
 
-	public Long registerBooking(Long userId, Long articleId) {
-		Booking bookingToRegister = null;
-		User bookingUser = userDao.findById(userId);
-		Article bookedArticle = articleDao.findById(articleId);
-		if(bookingUser == null)
-			throw new UserDoesNotExistException("Cannot register Booking, specified User not present in the system!");
-		if(bookedArticle == null)
-			throw new ArticleDoesNotExistException("Cannot register Booking, specified Article not present in catalogue!");
+	@Inject
+	private BookingService bookingService;
+	
+
+	@POST
+	@Consumes(MediaType.APPLICATION_JSON)
+	@Produces(MediaType.APPLICATION_JSON)
+	public Response registerBooking(@Context SecurityContext securityContext, @QueryParam("userId") Long userId, @QueryParam("articleId") Long articleId) {
+		if(userId == null)
+			return Response.status(Response.Status.BAD_REQUEST)
+					.entity("{\"error\": \"Cannot register Booking, User not specified!\"}").build();
+		if(articleId == null)
+			return Response.status(Response.Status.BAD_REQUEST)
+					.entity("{\"error\": \"Cannot register Booking, Article not specified!\"}").build();
+
+		Long loggedUserId = JWTUtil.getUserIdFromToken(securityContext.getUserPrincipal().getName());
 		
-		bookingToRegister = ModelFactory.booking();
-		
-		switch(bookedArticle.getState()) {
-		case BOOKED:
-			throw new InvalidOperationException("Cannot register Booking, specified Article is already booked!");
-		case ONLOANBOOKED:
-			throw new InvalidOperationException("Cannot register Booking, specified Article is already booked!");
-		case UNAVAILABLE:
-			throw new InvalidOperationException("Cannot register Booking, specified Article is UNAVAILABLE!");
-		case AVAILABLE:
-			bookingToRegister.setBookingEndDate(today.plusDays(3));
-			bookedArticle.setState(ArticleState.BOOKED);
-			break;
-		case ONLOAN:
-			List<Loan> existingLoans = loanDao.searchLoans(bookingUser, bookedArticle, 0, 1);
-			if (!(existingLoans.isEmpty()) && (existingLoans.get(0).getState() == LoanState.ACTIVE || existingLoans.get(0).getState() == LoanState.OVERDUE))
-				throw new InvalidOperationException("Cannot register Booking, selected user has selected Article currently on loan!");
-			bookedArticle.setState(ArticleState.ONLOANBOOKED);
-			bookingToRegister.setBookingEndDate(loanDao.searchLoans(null, bookedArticle, 0, 1).get(0).getDueDate().plusDays(3));
-			break;
+		if(!securityContext.isUserInRole("ADMINISTRATOR") && !loggedUserId.equals(userId)) {
+			return Response.status(Response.Status.UNAUTHORIZED).build();
 		}
 		
-		bookingToRegister.setBookingUser(bookingUser);
-		bookingToRegister.setBookedArticle(bookedArticle);
-		bookingToRegister.setBookingDate(today);
-		
-		bookingToRegister.setState(BookingState.ACTIVE);
-		
-		bookingDao.save(bookingToRegister);
-		
-		return bookingToRegister.getId();
-	}
-	
-	public BookingDTO getBookingInfo(Long bookingId) {
-		Booking booking = bookingDao.findById(bookingId);
-		
-		if(booking == null)
-			throw new BookingDoesNotExistException("Specified Booking not registered in the system!");
-		
-		if(booking.getState() == BookingState.ACTIVE) {
-			booking.validateState();
-			bookingDao.save(booking);
-		}
-		
-		return new BookingDTO(booking);
+		try {
+			Long bookingId = bookingService.registerBooking(userId, articleId);
+			return Response.status(Response.Status.CREATED)
+					.entity("{\"bookingId\": " + bookingId + "}").build();
+		} catch (UserDoesNotExistException | ArticleDoesNotExistException e) {
+			return Response.status(Response.Status.NOT_FOUND)
+					.entity("{\"error\": \"" + e.getMessage() + "\"}").build();
+		} catch (InvalidOperationException e) {
+			return Response.status(Response.Status.BAD_REQUEST)
+					.entity("{\"error\": \"" + e.getMessage() + "\"}").build();
+		} catch (Exception e) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+					.entity("{\"error\": \"An error occurred while registering the booking.\"}").build();
+        }
 	}
 
-	public void cancelBooking(Long bookingId) {
-		Booking bookingToCancel = bookingDao.findById(bookingId);
-		
-		if(bookingToCancel == null)
-			throw new BookingDoesNotExistException("Cannot cancel Booking. Specified Booking not registered in the system!");
-		
-		if(bookingToCancel.getState() != BookingState.ACTIVE)
-			throw new InvalidOperationException("Cannot cancel Booking. Specified Booking is not active!");
-		
-		bookingToCancel.getBookedArticle().setState(ArticleState.AVAILABLE);
-		bookingToCancel.setState(BookingState.CANCELLED);
+	@GET
+	@Path("/{bookingId}")
+	@Produces(MediaType.APPLICATION_JSON)
+	public Response getBookingInfo(@PathParam("bookingId") Long bookingId) {
+		try {
+			BookingDTO bookingDTO = bookingService.getBookingInfo(bookingId);
+			return Response.ok(bookingDTO).build();
+		} catch (BookingDoesNotExistException e) {
+			return Response.status(Response.Status.NOT_FOUND)
+					.entity("{\"error\": \"" + e.getMessage() + "\"}").build();
+		} catch (Exception e) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+					.entity("{\"error\": \"An error occurred while retrieving the booking information.\"}").build();
+        }
 	}
-	
-	@Transactional(value = TxType.REQUIRES_NEW)
-	public List<Booking> getBookingsByUser(Long userId, int fromIndex, int limit) {
-		User user = userDao.findById(userId);
+
+	@PATCH
+	@Path("/{bookingId}/cancel")
+	@Produces(MediaType.APPLICATION_JSON)
+	public Response cancelBooking(@Context SecurityContext securityContext, @PathParam("bookingId") Long bookingId) {
+		Long loggedUserId = JWTUtil.getUserIdFromToken(securityContext.getUserPrincipal().getName());
 		
-		if(user == null)
-			throw new UserDoesNotExistException("Specified user is not registered in the system!");
-		
-		List<Booking> userBookings = bookingDao.searchBookings(user, null, fromIndex, limit);
-		
-		if(userBookings.isEmpty())
-			throw new SearchHasGivenNoResultsException("No bookings relative to the specified user found!");
-		
-		for(Booking booking : userBookings)
-			if(booking.getState() == BookingState.ACTIVE) {
-				booking.validateState();
-				bookingDao.save(booking);
+		try {
+			Long bookingUserId = bookingService.getBookingInfo(bookingId).getBookingUserId();
+			
+			if(!securityContext.isUserInRole("ADMINISTRATOR") && !loggedUserId.equals(bookingUserId)) {
+				return Response.status(Response.Status.UNAUTHORIZED).build();
 			}
-		return userBookings;
+
+			bookingService.cancelBooking(bookingId);
+			return Response.ok("{\"message\": \"Booking cancelled successfully.\"}").build();
+		} catch (BookingDoesNotExistException e) {
+			return Response.status(Response.Status.NOT_FOUND)
+					.entity("{\"error\": \"" + e.getMessage() + "\"}").build();
+		} catch (InvalidOperationException e) {
+			return Response.status(Response.Status.BAD_REQUEST)
+					.entity("{\"error\": \"" + e.getMessage() + "\"}").build();
+		} catch (Exception e) {
+			return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+					.entity("{\"error\": \"An error occurred while attempting to cancel the booking.\"}").build();
+		}
 	}
+
 	
-	public Long countBookingsByUser(Long userId) {
-		User user = userDao.findById(userId);
+	@GET
+	@Path("/{userId}/bookings")
+	@Produces(MediaType.APPLICATION_JSON)
+	public Response getBookedArticlesByUser(@Context SecurityContext securityContext, @PathParam("userId") Long userId,
+			@QueryParam("pageNumber") @DefaultValue("1") int pageNumber,
+			@QueryParam("resultsPerPage") @DefaultValue("10") int resultsPerPage) {
 
-		if(user == null)
-			throw new UserDoesNotExistException("Specified user is not registered in the system!");
+		if((pageNumber < 1) || (resultsPerPage < 0))
+			return Response.status(Response.Status.BAD_REQUEST)
+					.entity("{\"error\": \"Pagination parameters incorrect!\"}").build();
 
-			return bookingDao.countBookings(user, null);
+		Long loggedUserId = JWTUtil.getUserIdFromToken(securityContext.getUserPrincipal().getName());
+		if(!securityContext.isUserInRole("ADMINISTRATOR") && !loggedUserId.equals(userId)) {
+			return Response.status(Response.Status.UNAUTHORIZED).build();
+		}
+
+		try {
+    		long totalResults = bookingService.countBookingsByUser(userId);
+    		int totalPages = (int) Math.ceil((double) totalResults / resultsPerPage);
+    		
+    		if(pageNumber > totalPages) {
+    			pageNumber = totalPages == 0 ? 1 : totalPages;
+    		}
+    		
+    		int fromIndex = (pageNumber - 1) * resultsPerPage;
+
+			List<BookingDTO> bookingDTOs = bookingService.getBookingsByUser(userId, fromIndex, resultsPerPage)
+															.stream()
+															.map(BookingDTO::new)
+															.collect(Collectors.toList());
+			
+            PaginationResponse<BookingDTO> response = new PaginationResponse<>(
+            		bookingDTOs,
+                    pageNumber,
+                    resultsPerPage,
+                    totalResults,
+                    totalPages
+            );
+
+			return Response.ok(response).build();
+		} catch (UserDoesNotExistException | SearchHasGivenNoResultsException e) {
+			return Response.status(Response.Status.NOT_FOUND)
+					.entity("{\"error\": \"" + e.getMessage() + "\"}").build();
+		} catch (Exception e) {
+			return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+					.entity("{\"error\": \"An error occurred while retrieving user bookings.\"}").build();
+		}
 	}
 }

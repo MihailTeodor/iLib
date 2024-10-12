@@ -1,385 +1,489 @@
 package it.gurzu.SWAM.iLib.controllerTest;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.sql.SQLException;
 import java.time.LocalDate;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.stream.Stream;
 
-import org.apache.commons.lang3.reflect.FieldUtils;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.EnumSource;
-import org.junit.jupiter.params.provider.MethodSource;
-import org.mockito.ArgumentCaptor;
 
-import it.gurzu.swam.iLib.controllers.BookingController;
-import it.gurzu.swam.iLib.dao.ArticleDao;
-import it.gurzu.swam.iLib.dao.BookingDao;
-import it.gurzu.swam.iLib.dao.LoanDao;
-import it.gurzu.swam.iLib.dao.UserDao;
-import it.gurzu.swam.iLib.dto.BookingDTO;
-import it.gurzu.swam.iLib.exceptions.ArticleDoesNotExistException;
-import it.gurzu.swam.iLib.exceptions.BookingDoesNotExistException;
-import it.gurzu.swam.iLib.exceptions.InvalidOperationException;
-import it.gurzu.swam.iLib.exceptions.SearchHasGivenNoResultsException;
-import it.gurzu.swam.iLib.exceptions.UserDoesNotExistException;
-import it.gurzu.swam.iLib.model.Article;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+
+import io.restassured.RestAssured;
+import io.restassured.response.Response;
+import io.restassured.specification.RequestSpecification;
 import it.gurzu.swam.iLib.model.ArticleState;
+import it.gurzu.swam.iLib.model.Book;
 import it.gurzu.swam.iLib.model.Booking;
 import it.gurzu.swam.iLib.model.BookingState;
-import it.gurzu.swam.iLib.model.Loan;
-import it.gurzu.swam.iLib.model.LoanState;
 import it.gurzu.swam.iLib.model.User;
+import it.gurzu.swam.iLib.model.UserRole;
 
-public class BookingControllerTest {
-	private BookingController bookingController;
-	private BookingDao bookingDaoMock;
-	private UserDao userDaoMock;
-	private ArticleDao articleDaoMock;
-	private LoanDao loanDaoMock;
-	
-	private final LocalDate today = LocalDate.now();
+public class BookingControllerTest extends ControllerTest {
+	private User citizenUser;
+	private String adminToken;
+	private String citizenToken;
 
-	
-	@BeforeEach
-	public void setup() throws IllegalAccessException {
-		bookingController = new BookingController();
-		bookingDaoMock = mock(BookingDao.class);
-		userDaoMock = mock(UserDao.class);
-		articleDaoMock = mock(ArticleDao.class);
-		loanDaoMock = mock(LoanDao.class);
-		
-		FieldUtils.writeField(bookingController, "bookingDao", bookingDaoMock, true);
-		FieldUtils.writeField(bookingController, "userDao", userDaoMock, true);
-		FieldUtils.writeField(bookingController, "articleDao", articleDaoMock, true);
-		FieldUtils.writeField(bookingController, "loanDao", loanDaoMock, true);
+	private RequestSpecification request;
+	private Response response;
+	private String body;
+	private JsonObject responseBody;
+
+	@Override
+	protected void beforeEachInit() throws SQLException, IllegalAccessException {
+		setBaseURL("/iLib/v1/bookingsEndpoint");
+
+		QueryUtils.queryTruncateAll(connection);
+
+		QueryUtils.queryCreateUser(connection, 1L, "admin@example.com", "admin password", "adminName",
+				"adminSurname", "adminAddress", "adminTelephoneNumber", UserRole.ADMINISTRATOR);
+		adminToken = AuthHelper.getAuthToken("admin@example.com", "admin password");
+
+		citizenUser = QueryUtils.queryCreateUser(connection, 2L, "user@Email.com", "user password", "name", "surname",
+				"address", "123432", UserRole.CITIZEN);
+		citizenToken = AuthHelper.getAuthToken("user@Email.com", "user password");
 	}
-	
-	
+
 	@Test
-	public void testRegisterBooking_WhenUserDoesNotExist_ThrowsUserDoesNotExistException() {
-		Article mockArticle = mock(Article.class);
-		when(userDaoMock.findById(1L)).thenReturn(null);
-		when(articleDaoMock.findById(1L)).thenReturn(mockArticle);
-		
-		Exception thrownException = assertThrows(UserDoesNotExistException.class, ()->{
-			bookingController.registerBooking(1L, 1L);
-			
-		});
-		assertEquals("Cannot register Booking, specified User not present in the system!", thrownException.getMessage());			
+	public void testRegisterBooking_Success() throws IllegalAccessException, SQLException {
+		QueryUtils.queryCreateBook(connection, 1L, "Shelf 1", "Book 1", LocalDate.now(), "Publisher 1", "Fiction",
+				"Description 1", ArticleState.AVAILABLE, "Author 1", "1234567890");
+
+		request = RestAssured.given();
+		request.header("Authorization", "Bearer " + adminToken);
+		request.header("Content-type", "application/json");
+		request.queryParam("userId", 1L);
+		request.queryParam("articleId", 1L);
+
+		response = executePost(request, "/");
+
+		response.then().statusCode(201).contentType("application/json");
+
+		body = response.getBody().asString();
+		responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+		assertTrue(responseBody.has("bookingId"));
 	}
-	
+
 	@Test
-	public void testRegisterBooking_WhenArticleDoesNotExist_ThrowsArticleDoesNotExistException() {
-		User mockUser = mock(User.class);
-		when(articleDaoMock.findById(1L)).thenReturn(null);
-		when(userDaoMock.findById(1L)).thenReturn(mockUser);
-		
-		Exception thrownException = assertThrows(ArticleDoesNotExistException.class, ()->{
-			bookingController.registerBooking(1L, 1L);
-			
-		});
-		assertEquals("Cannot register Booking, specified Article not present in catalogue!", thrownException.getMessage());			
+	public void testRegisterBooking_MissingUserId() {
+		request = RestAssured.given();
+		request.header("Authorization", "Bearer " + adminToken);
+		request.header("Content-type", "application/json");
+		request.queryParam("articleId", 1);
+
+		response = executePost(request, "/");
+
+		response.then().statusCode(400).contentType("application/json");
+
+		body = response.getBody().asString();
+		responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+		assertEquals("Cannot register Booking, User not specified!", responseBody.get("error").getAsString());
 	}
-	
-    @ParameterizedTest
-    @EnumSource(value = ArticleState.class, names = {"BOOKED", "ONLOANBOOKED", "UNAVAILABLE"})
-    public void testRegisterBooking_WhenInvalidArticleStateConditions_ThrowsInvalidOperationException(ArticleState state) {
-        User user = mock(User.class);
-        Article article = mock(Article.class);
 
-        when(userDaoMock.findById(1L)).thenReturn(user);
-        when(articleDaoMock.findById(1L)).thenReturn(article);
-        when(article.getState()).thenReturn(state);
-
-		Exception thrownException = assertThrows(InvalidOperationException.class, ()->{
-			bookingController.registerBooking(1L, 1L);
-			
-		});
-		if(state == ArticleState.BOOKED || state == ArticleState.ONLOANBOOKED)
-			assertEquals("Cannot register Booking, specified Article is already booked!", thrownException.getMessage());			
-		else
-			assertEquals("Cannot register Booking, specified Article is UNAVAILABLE!", thrownException.getMessage());			
-    }
-	
-    @ParameterizedTest
-    @EnumSource(value = LoanState.class, names = {"ACTIVE", "OVERDUE"})
-    public void testRegisterBooking_WhenUserHasArticleOnLoan_ThrowsInvalidOperationException(LoanState state) {
-        User user = mock(User.class);
-        Article article = mock(Article.class);
-        Loan loan = mock(Loan.class);
-
-        when(userDaoMock.findById(1L)).thenReturn(user);
-        when(articleDaoMock.findById(1L)).thenReturn(article);
-        when(article.getState()).thenReturn(ArticleState.ONLOAN);
-        when(loan.getState()).thenReturn(state);
-        when(loanDaoMock.searchLoans(user, article, 0, 1)).thenReturn(List.of(loan));
-
-		Exception thrownException = assertThrows(InvalidOperationException.class, ()->{
-			bookingController.registerBooking(1L, 1L);
-			
-		});
-		assertEquals("Cannot register Booking, selected user has selected Article currently on loan!", thrownException.getMessage());			
-    }
-	
-    @ParameterizedTest
-    @MethodSource("testRegisterBooking_SuccessfulRegistrationArgumentsProvider")
-    public void testRegisterBooking_SuccessfulRegistration(ArticleState initialState, ArticleState expectedState) {
-        User user = mock(User.class);
-        Article article = mock(Article.class);
-        Loan loan = mock(Loan.class);
-
-        when(userDaoMock.findById(1L)).thenReturn(user);
-        when(articleDaoMock.findById(1L)).thenReturn(article);
-        when(article.getState()).thenReturn(initialState);
-        when(loan.getDueDate()).thenReturn(today.plusMonths(1));
-        when(loanDaoMock.searchLoans(null, article, 0, 1)).thenReturn(List.of(loan));
-
-        Long returnedId = bookingController.registerBooking(1L, 1L);
-
-        ArgumentCaptor<Booking> bookingCaptor = ArgumentCaptor.forClass(Booking.class);
-        verify(bookingDaoMock).save(bookingCaptor.capture());
-        Booking registeredBooking = bookingCaptor.getValue();
-
-        assertEquals(returnedId, registeredBooking.getId());
-        assertEquals(user, registeredBooking.getBookingUser());
-        assertEquals(article, registeredBooking.getBookedArticle());
-        assertEquals(BookingState.ACTIVE, registeredBooking.getState());
-        verify(article).setState(expectedState);
-
-        if (initialState == ArticleState.AVAILABLE) {
-            assertEquals(today.plusDays(3), registeredBooking.getBookingEndDate());
-        } else {
-            assertEquals(loan.getDueDate().plusDays(3), registeredBooking.getBookingEndDate());
-        }
-    }
-	
 	@Test
-	public void testGetBookingInfo_WhenBookingNotInTheSystem_ThrowsBookingDoesNotExistException() {
-		when(bookingDaoMock.findById(1L)).thenReturn(null);
-		
-		Exception thrownException = assertThrows(BookingDoesNotExistException.class, ()->{
-			bookingController.getBookingInfo(1L);
-			
-		});
-		assertEquals("Specified Booking not registered in the system!", thrownException.getMessage());
+	public void testRegisterBooking_MissingArticleId() {
+		request = RestAssured.given();
+		request.header("Authorization", "Bearer " + adminToken);
+		request.header("Content-type", "application/json");
+		request.queryParam("userId", 1);
+
+		response = executePost(request, "/");
+
+		response.then().statusCode(400).contentType("application/json");
+
+		body = response.getBody().asString();
+		responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+		assertEquals("Cannot register Booking, Article not specified!", responseBody.get("error").getAsString());
 	}
-	
+
 	@Test
-	public void testGetBookingInfo_WhenBookingFoundAndActive_CallsValidateState() {
-	    Booking mockBooking = mock(Booking.class);
-    	Article mockArticle = mock(Article.class);
-    	User mockUser = mock(User.class);
+	public void testRegisterBooking_Unauthorized() {
+		request = RestAssured.given();
+		request.header("Authorization", "Bearer " + citizenToken);
+		request.header("Content-type", "application/json");
+		request.queryParam("userId", 1);
+		request.queryParam("articleId", 1);
 
-    	when(mockArticle.getId()).thenReturn(3L);
-    	when(mockUser.getId()).thenReturn(5L);
+		response = executePost(request, "/");
 
-    	when(mockBooking.getBookedArticle()).thenReturn(mockArticle);
-    	when(mockBooking.getBookingUser()).thenReturn(mockUser);
+		response.then().statusCode(401);
+	}
 
-	    when(mockBooking.getState()).thenReturn(BookingState.ACTIVE);
-	    when(bookingDaoMock.findById(1L)).thenReturn(mockBooking);
-	    
-	    bookingController.getBookingInfo(1L);
+	@Test
+	public void testRegisterBooking_UserNotFound() {
+		request = RestAssured.given();
+		request.header("Authorization", "Bearer " + adminToken);
+		request.header("Content-type", "application/json");
+		request.queryParam("userId", 9999);
+		request.queryParam("articleId", 1);
 
-	    verify(mockBooking).validateState();
+		response = executePost(request, "/");
+
+		response.then().statusCode(404).contentType("application/json");
+
+		body = response.getBody().asString();
+		responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+		assertEquals("Cannot register Booking, specified User not present in the system!",
+				responseBody.get("error").getAsString());
+	}
+
+	@Test
+	public void testRegisterBooking_ArticleNotFound() {
+		request = RestAssured.given();
+		request.header("Authorization", "Bearer " + adminToken);
+		request.header("Content-type", "application/json");
+		request.queryParam("userId", 1);
+		request.queryParam("articleId", 9999);
+
+		response = executePost(request, "/");
+
+		response.then().statusCode(404).contentType("application/json");
+
+		body = response.getBody().asString();
+		responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+		assertEquals("Cannot register Booking, specified Article not present in catalogue!",
+				responseBody.get("error").getAsString());
+	}
+
+	@Test
+	public void testRegisterBooking_InvalidOperation() throws IllegalAccessException, SQLException {
+		QueryUtils.queryCreateBook(connection, 2L, "Shelf 2", "Book 2", LocalDate.now(), "Publisher 2", "Science",
+				"Description 2", ArticleState.BOOKED, "Author 2", "0987654321");
+
+		request = RestAssured.given();
+		request.header("Authorization", "Bearer " + adminToken);
+		request.header("Content-type", "application/json");
+		request.queryParam("userId", 1);
+		request.queryParam("articleId", 2);
+
+		response = executePost(request, "/");
+
+		response.then().statusCode(400).contentType("application/json");
+
+		body = response.getBody().asString();
+		responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+		assertEquals("Cannot register Booking, specified Article is already booked!",
+				responseBody.get("error").getAsString());
+	}
+
+	@Test
+	public void testGetBookingInfo_Success() throws IllegalAccessException, SQLException {
+		Book book = QueryUtils.queryCreateBook(connection, 1L, "Shelf 1", "Book 1", LocalDate.of(2020, 1, 1),
+				"Publisher 1", "Fiction", "Description 1", ArticleState.AVAILABLE, "Author 1", "1234567890");
+		Booking booking = QueryUtils.queryCreateBooking(connection, 1L, LocalDate.now(), LocalDate.now().plusDays(3),
+				BookingState.ACTIVE, book, citizenUser);
+
+		request = RestAssured.given();
+		request.header("Authorization", "Bearer " + adminToken);
+		request.header("Content-type", "application/json");
+
+		response = executeGet(request, "/1");
+
+		response.then().statusCode(200).contentType("application/json");
+
+		body = response.getBody().asString();
+		responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+		assertEquals(booking.getId(), responseBody.get("id").getAsLong());
+		assertEquals(booking.getBookedArticle().getId(), responseBody.get("bookedArticleId").getAsLong());
+		assertEquals(booking.getBookedArticle().getTitle(), responseBody.get("bookedArticleTitle").getAsString());
+		assertEquals(booking.getBookingUser().getId(), responseBody.get("bookingUserId").getAsLong());
+		assertEquals(booking.getState().toString(), responseBody.get("state").getAsString());
+
+		JsonArray bookingDateArray = responseBody.get("bookingDate").getAsJsonArray();
+		LocalDate bookingDateResponse = LocalDate.of(bookingDateArray.get(0).getAsInt(),
+				bookingDateArray.get(1).getAsInt(), bookingDateArray.get(2).getAsInt());
+
+		assertEquals(booking.getBookingDate(), bookingDateResponse);
+
+		JsonArray bookingEndDateArray = responseBody.get("bookingEndDate").getAsJsonArray();
+		LocalDate bookingEndDateResponse = LocalDate.of(bookingEndDateArray.get(0).getAsInt(),
+				bookingEndDateArray.get(1).getAsInt(), bookingEndDateArray.get(2).getAsInt());
+
+		assertEquals(booking.getBookingEndDate(), bookingEndDateResponse);
+	}
+
+	@Test
+	public void testGetBookingInfo_NotFound() {
+		request = RestAssured.given();
+		request.header("Authorization", "Bearer " + adminToken);
+		request.header("Content-type", "application/json");
+
+		response = executeGet(request, "/999");
+
+		response.then().statusCode(404).contentType("application/json");
+
+		body = response.getBody().asString();
+		responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+		assertEquals("Specified Booking not registered in the system!", responseBody.get("error").getAsString());
+	}
+
+	@Test
+	public void testCancelBooking_Success() throws IllegalAccessException, SQLException {
+		Book book = QueryUtils.queryCreateBook(connection, 1L, "Shelf 1", "Book 1", LocalDate.now(), "Publisher 1",
+				"Fiction", "Description 1", ArticleState.AVAILABLE, "Author 1", "1234567890");
+		QueryUtils.queryCreateBooking(connection, 1L, LocalDate.now(), LocalDate.now().plusDays(3), BookingState.ACTIVE,
+				book, citizenUser);
+
+		request = RestAssured.given();
+		request.header("Authorization", "Bearer " + citizenToken);
+		request.header("Content-type", "application/json");
+
+		response = executePatch(request, "/1/cancel");
+
+		response.then().statusCode(200).contentType("application/json");
+
+		body = response.getBody().asString();
+		responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+		assertEquals("Booking cancelled successfully.", responseBody.get("message").getAsString());
+	}
+
+	@Test
+	public void testCancelBooking_NotFound() {
+		request = RestAssured.given();
+		request.header("Authorization", "Bearer " + adminToken);
+		request.header("Content-type", "application/json");
+
+		response = executePatch(request, "/999/cancel");
+
+		response.then().statusCode(404).contentType("application/json");
+
+		body = response.getBody().asString();
+		responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+		assertEquals("Specified Booking not registered in the system!", responseBody.get("error").getAsString());
+	}
+
+	@Test
+	public void testCancelBooking_Unauthorized() throws IllegalAccessException, SQLException {
+		Book book = QueryUtils.queryCreateBook(connection, 1L, "Shelf 1", "Book 1", LocalDate.now(), "Publisher 1",
+				"Fiction", "Description 1", ArticleState.AVAILABLE, "Author 1", "1234567890");
+		QueryUtils.queryCreateBooking(connection, 1L, LocalDate.now(), LocalDate.now().plusDays(3), BookingState.ACTIVE,
+				book, citizenUser);
+		QueryUtils.queryCreateUser(connection, 3L, "other@Email.com", "other password", "other",
+				"surname", "address", "123432", UserRole.CITIZEN);
+		String otherUserToken = AuthHelper.getAuthToken("other@Email.com", "other password");
+
+		request = RestAssured.given();
+		request.header("Authorization", "Bearer " + otherUserToken);
+		request.header("Content-type", "application/json");
+
+		response = executePatch(request, "/1/cancel");
+
+		response.then().statusCode(401);
+	}
+
+	@Test
+	public void testCancelBooking_InvalidOperation() throws IllegalAccessException, SQLException {
+		QueryUtils.queryCreateBooking(connection, 2L, LocalDate.now(), LocalDate.now().plusDays(3),
+				BookingState.CANCELLED,
+				QueryUtils.queryCreateBook(connection, 2L, "Shelf 2", "Book 2", LocalDate.of(2021, 1, 1), "Publisher 2",
+						"Science", "Description 2", ArticleState.AVAILABLE, "Author 2", "0987654321"),
+				citizenUser);
+
+		request = RestAssured.given();
+		request.header("Authorization", "Bearer " + citizenToken);
+		request.header("Content-type", "application/json");
+
+		response = executePatch(request, "/2/cancel");
+
+		response.then().statusCode(400).contentType("application/json");
+
+		body = response.getBody().asString();
+		responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+		assertEquals("Cannot cancel Booking. Specified Booking is not active!",
+				responseBody.get("error").getAsString());
 	}
 	
-    @ParameterizedTest
-    @EnumSource(value = BookingState.class, names = {"CANCELLED", "COMPLETED", "EXPIRED"})
-	public void testGetBookingInfo_WhenBookingFoundAndNotActive_DoesNotCallValidateState(BookingState state) {
-	    Booking mockBooking = mock(Booking.class);
-    	Article mockArticle = mock(Article.class);
-    	User mockUser = mock(User.class);
-
-    	when(mockArticle.getId()).thenReturn(3L);
-    	when(mockUser.getId()).thenReturn(5L);
-
-    	when(mockBooking.getBookedArticle()).thenReturn(mockArticle);
-    	when(mockBooking.getBookingUser()).thenReturn(mockUser);
-    	
-        when(mockBooking.getState()).thenReturn(state);
-	    when(bookingDaoMock.findById(1L)).thenReturn(mockBooking);
-
-	    bookingController.getBookingInfo(1L);
-
-	    verify(mockBooking, never()).validateState();
-	}
-    
-    @Test
-    public void testGetBookingInfo_ReturnsCorrectDTO() {
-    	Booking mockBooking = mock(Booking.class);
-    	Article mockArticle = mock(Article.class);
-    	User mockUser = mock(User.class);
-    	
-    	when(mockArticle.getId()).thenReturn(3L);
-    	when(mockArticle.getTitle()).thenReturn("a title");
-    	
-    	when(mockUser.getId()).thenReturn(5L);
-    	
-    	when(mockBooking.getId()).thenReturn(1L);
-		when(mockBooking.getState()).thenReturn(BookingState.ACTIVE);
-    	when(mockBooking.getBookedArticle()).thenReturn(mockArticle);
-    	when(mockBooking.getBookingUser()).thenReturn(mockUser);
-    	when(mockBooking.getBookingDate()).thenReturn(today);
-    	when(mockBooking.getBookingEndDate()).thenReturn(today.plusDays(3));
-	    when(bookingDaoMock.findById(1L)).thenReturn(mockBooking);
-
-    	BookingDTO bookingDTO = bookingController.getBookingInfo(1L);
-    	
-    	assertNotNull(bookingDTO);
-    	assertEquals(bookingDTO.getId(), mockBooking.getId());
-    	assertEquals(bookingDTO.getState(), mockBooking.getState());
-    	assertEquals(bookingDTO.getBookedArticleId(), mockBooking.getBookedArticle().getId());
-    	assertEquals(bookingDTO.getBookedArticleTitle(), mockBooking.getBookedArticle().getTitle());
-    	assertEquals(bookingDTO.getBookingUserId(), mockBooking.getBookingUser().getId());
-    	assertEquals(bookingDTO.getBookingDate(), mockBooking.getBookingDate());
-    	assertEquals(bookingDTO.getBookingEndDate(), mockBooking.getBookingEndDate());
-    }
 	
     @Test
-    public void testCancelBooking_WhenBookingNotFound_ThrowsBookingDoesNotExistException() {
-        when(bookingDaoMock.findById(1L)).thenReturn(null);
-
-		Exception thrownException = assertThrows(BookingDoesNotExistException.class, ()->{
-			bookingController.cancelBooking(1L);
-			
-		});
-		assertEquals("Cannot cancel Booking. Specified Booking not registered in the system!", thrownException.getMessage());
-    }
-
-    @ParameterizedTest
-    @EnumSource(value = BookingState.class, names = {"CANCELLED", "COMPLETED", "EXPIRED"})
-    public void testCancelBooking_WhenBookingStateIsNotActive_ThrowsInvalidOperationException(BookingState state) {
-    	Booking mockBooking = mock(Booking.class);
-    	when(mockBooking.getState()).thenReturn(state);
-    	when(bookingDaoMock.findById(1L)).thenReturn(mockBooking);
-    	
-		Exception thrownException = assertThrows(InvalidOperationException.class, ()->{
-			bookingController.cancelBooking(1L);
-			
-		});
-		assertEquals("Cannot cancel Booking. Specified Booking is not active!", thrownException.getMessage());
-    }
+    public void testGetBookedArticlesByUser_Success() throws IllegalAccessException, SQLException {
+        Book book = QueryUtils.queryCreateBook(connection, 1L, "Shelf 1", "Book 1", LocalDate.now(), "Publisher 1", "Fiction", "Description 1", ArticleState.AVAILABLE, "Author 1", "1234567890");
+        Booking booking = QueryUtils.queryCreateBooking(connection, 1L, LocalDate.now(), LocalDate.now().plusDays(3), BookingState.ACTIVE, book, citizenUser);
     
+        request = RestAssured.given();
+        request.header("Authorization", "Bearer " + citizenToken);
+        request.header("Content-type", "application/json");
+
+        response = executeGet(request, "/2/bookings");
+
+        response.then().statusCode(200).contentType("application/json");
+
+        body = response.getBody().asString();
+        responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+        assertTrue(responseBody.has("items"));
+        JsonArray itemsArray = responseBody.get("items").getAsJsonArray();
+        assertEquals(1, itemsArray.size());
+
+        JsonObject bookingObject = itemsArray.get(0).getAsJsonObject();
+        assertEquals(booking.getId(), bookingObject.get("id").getAsLong());
+        assertEquals(booking.getBookedArticle().getId(), bookingObject.get("bookedArticleId").getAsLong());
+        assertEquals(booking.getBookedArticle().getTitle(), bookingObject.get("bookedArticleTitle").getAsString());
+        assertEquals(booking.getBookingUser().getId(), bookingObject.get("bookingUserId").getAsLong());
+        assertEquals(booking.getState().toString(), bookingObject.get("state").getAsString());
+    
+		JsonArray bookingDateArray = bookingObject.get("bookingDate").getAsJsonArray();
+		LocalDate bookingDateResponse = LocalDate.of(bookingDateArray.get(0).getAsInt(),
+				bookingDateArray.get(1).getAsInt(), bookingDateArray.get(2).getAsInt());
+
+		assertEquals(booking.getBookingDate(), bookingDateResponse);
+
+		JsonArray bookingEndDateArray = bookingObject.get("bookingEndDate").getAsJsonArray();
+		LocalDate bookingEndDateResponse = LocalDate.of(bookingEndDateArray.get(0).getAsInt(),
+				bookingEndDateArray.get(1).getAsInt(), bookingEndDateArray.get(2).getAsInt());
+
+		assertEquals(booking.getBookingEndDate(), bookingEndDateResponse);
+    }
+
     @Test
-    public void testCancelBooking_WhenBookingStateIsActive_SuccessfullyCancelBooking() {
-        Booking mockBooking = mock(Booking.class);
-        Article mockArticle = mock(Article.class);
-        
-        when(mockBooking.getState()).thenReturn(BookingState.ACTIVE);
-        when(mockBooking.getBookedArticle()).thenReturn(mockArticle);
-        when(bookingDaoMock.findById(1L)).thenReturn(mockBooking);
+    public void testGetBookedArticlesByUser_MissingUser() {
+        request = RestAssured.given();
+        request.header("Authorization", "Bearer " + adminToken);
+        request.header("Content-type", "application/json");
 
-        bookingController.cancelBooking(1L);
+        response = executeGet(request, "/999/bookings");
 
-        verify(mockBooking).setState(BookingState.CANCELLED);
-        verify(mockArticle).setState(ArticleState.AVAILABLE);
+        response.then().statusCode(404).contentType("application/json");
+
+        body = response.getBody().asString();
+        responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+        assertEquals("Specified user is not registered in the system!", responseBody.get("error").getAsString());
     }
 
-    
     @Test
-    public void testGetBookedArticlesByUser_WhenUserDoesNotExist_ThrowsUserDoesNotExistException() {
-    	when(userDaoMock.findById(1L)).thenReturn(null);
-    	
-		Exception thrownException = assertThrows(UserDoesNotExistException.class, ()->{
-			bookingController.getBookingsByUser(1L, 0, 0);
-			
-		});
-		assertEquals("Specified user is not registered in the system!", thrownException.getMessage());
+    public void testGetBookedArticlesByUser_InvalidPagination() {
+        request = RestAssured.given();
+        request.header("Authorization", "Bearer " + adminToken);
+        request.header("Content-type", "application/json");
+        request.queryParam("pageNumber", 0);
+        request.queryParam("resultsPerPage", -1);
+
+        response = executeGet(request, "/2/bookings");
+
+        response.then().statusCode(400).contentType("application/json");
+
+        body = response.getBody().asString();
+        responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+        assertEquals("Pagination parameters incorrect!", responseBody.get("error").getAsString());
     }
-    
+
     @Test
-    public void testGetBookedArticlesByUser_WhenNoBookingsFound_ThrowsSearchHasGivenNoResultsException() {
-    	User user = mock(User.class);
-    	when(userDaoMock.findById(1L)).thenReturn(user);
-    	when(bookingDaoMock.searchBookings(user, null, 0, 0)).thenReturn(Collections.emptyList());
-    	
-		Exception thrownException = assertThrows(SearchHasGivenNoResultsException.class, ()->{
-			bookingController.getBookingsByUser(1L, 0, 0);
-			
-		});
-		assertEquals("No bookings relative to the specified user found!", thrownException.getMessage());
+    public void testGetBookedArticlesByUser_Unauthorized() throws IllegalAccessException, SQLException {
+        QueryUtils.queryCreateUser(connection, 3L, "other@Email.com", "other password", "other", "surname", "address", "123432", UserRole.CITIZEN);
+        String otherUserToken = AuthHelper.getAuthToken("other@Email.com", "other password");
+
+        request = RestAssured.given();
+        request.header("Authorization", "Bearer " + otherUserToken);
+        request.header("Content-type", "application/json");
+
+        response = executeGet(request, "/2/bookings");
+
+        response.then().statusCode(401);
     }
-    
+
     @Test
-    public void testGetBookedArticlesByUser_WhenUserHasActiveBookings_ValidateStateCalled() {
-        User user = mock(User.class);
-        Booking activeBooking1 = mock(Booking.class);
-        Booking activeBooking2 = mock(Booking.class);
+    public void testGetBookedArticlesByUser_NoBookingsFound() throws IllegalAccessException, SQLException {
+        QueryUtils.queryCreateUser(connection, 4L, "nobookings@Email.com", "user password", "No", "Bookings", "address", "123432", UserRole.CITIZEN);
 
-        when(activeBooking1.getState()).thenReturn(BookingState.ACTIVE);
-        when(activeBooking2.getState()).thenReturn(BookingState.ACTIVE);
+        request = RestAssured.given();
+        request.header("Authorization", "Bearer " + adminToken);
+        request.header("Content-type", "application/json");
 
+        response = executeGet(request, "/4/bookings");
 
-        when(userDaoMock.findById(1L)).thenReturn(user);
-        when(bookingDaoMock.searchBookings(user, null, 0, 0)).thenReturn(Arrays.asList(activeBooking1, activeBooking2));
+        response.then().statusCode(404).contentType("application/json");
 
-        bookingController.getBookingsByUser(1L, 0, 0);
+        body = response.getBody().asString();
+        responseBody = JsonParser.parseString(body).getAsJsonObject();
 
-        verify(activeBooking1).validateState();
-        verify(activeBooking1).validateState();
+        assertEquals("No bookings relative to the specified user found!", responseBody.get("error").getAsString());
     }
 
-    
-    @ParameterizedTest
-    @EnumSource(value = BookingState.class, names = {"CANCELLED", "COMPLETED", "EXPIRED"})
-    public void testGetBookedArticlesByUser_WhenUserHasNotActiveBookings_ValidateStateNotCalled(BookingState state) {
-        User user = mock(User.class);
-        Booking activeBooking1 = mock(Booking.class);
-        Booking activeBooking2 = mock(Booking.class);
-
-        when(activeBooking1.getState()).thenReturn(BookingState.ACTIVE);
-        when(activeBooking2.getState()).thenReturn(state);
-
-
-        when(userDaoMock.findById(1L)).thenReturn(user);
-        when(bookingDaoMock.searchBookings(user, null, 0, 0)).thenReturn(Arrays.asList(activeBooking1, activeBooking2));
-
-        bookingController.getBookingsByUser(1L, 0, 0);
-
-        verify(activeBooking1).validateState();
-        verify(activeBooking2, never()).validateState();
-    }
-    
     @Test
-    public void testCountBookingsByUser_WhenUserDoesNotExist_ThrowsUserDoesNotExistException() {
-    	when(userDaoMock.findById(1L)).thenReturn(null);
-    	
-		Exception thrownException = assertThrows(UserDoesNotExistException.class, ()->{
-			bookingController.countBookingsByUser(1L);
-			
-		});
-		assertEquals("Specified user is not registered in the system!", thrownException.getMessage());
+    public void testGetBookedArticlesByUser_MultipleResults() throws IllegalAccessException, SQLException {
+        Book book1 = QueryUtils.queryCreateBook(connection, 1L, "Shelf 1", "Book 1", LocalDate.now(), "Publisher 1", "Fiction", "Description 1", ArticleState.AVAILABLE, "Author 1", "1234567890");
+        Book book2 = QueryUtils.queryCreateBook(connection, 2L, "Shelf 2", "Book 2", LocalDate.now(), "Publisher 2", "Fiction", "Description 2", ArticleState.AVAILABLE, "Author 2", "1234567890");
 
+        QueryUtils.queryCreateBooking(connection, 1L, LocalDate.now(), LocalDate.now().plusDays(3), BookingState.ACTIVE, book1, citizenUser);
+        QueryUtils.queryCreateBooking(connection, 2L, LocalDate.now(), LocalDate.now().plusDays(3), BookingState.ACTIVE, book2, citizenUser);
+
+        request = RestAssured.given();
+        request.header("Authorization", "Bearer " + adminToken);
+        request.header("Content-type", "application/json");
+        request.queryParam("resultsPerPage", 1);
+        request.queryParam("pageNumber", 1);
+
+        response = executeGet(request, "/2/bookings");
+
+        response.then().statusCode(200).contentType("application/json");
+
+        body = response.getBody().asString();
+        responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+        assertTrue(responseBody.has("items"));
+        JsonArray itemsArray = responseBody.get("items").getAsJsonArray();
+        assertEquals(1, itemsArray.size());
+
+        assertEquals(1, responseBody.get("pageNumber").getAsInt());
+        assertEquals(1, responseBody.get("resultsPerPage").getAsInt());
+        assertEquals(responseBody.get("totalResults").getAsInt(), 2);
+        assertEquals(responseBody.get("totalPages").getAsInt(), 2);
     }
-    
+
     @Test
-    public void testCountBookingsByUser_WhenUserExists() {
-    	User userMock = mock(User.class);
-    	when(userDaoMock.findById(1L)).thenReturn(userMock);
-    	
-    	bookingController.countBookingsByUser(1L);
-    	
-    	verify(bookingDaoMock).countBookings(userMock, null);
+    public void testGetBookedArticlesByUser_Pagination() throws IllegalAccessException, SQLException {
+        Book book1 = QueryUtils.queryCreateBook(connection, 1L, "Shelf 1", "Book 1", LocalDate.now(), "Publisher 1", "Fiction", "Description 1", ArticleState.AVAILABLE, "Author 1", "1234567890");
+        Book book2 = QueryUtils.queryCreateBook(connection, 2L, "Shelf 2", "Book 2", LocalDate.now(), "Publisher 2", "Fiction", "Description 2", ArticleState.AVAILABLE, "Author 2", "1234567890");
+        Book book3 = QueryUtils.queryCreateBook(connection, 3L, "Shelf 3", "Book 3", LocalDate.now(), "Publisher 3", "Fiction", "Description 3", ArticleState.AVAILABLE, "Author 3", "1234567890");
+        Book book4 = QueryUtils.queryCreateBook(connection, 4L, "Shelf 4", "Book 4", LocalDate.now(), "Publisher 4", "Fiction", "Description 4", ArticleState.AVAILABLE, "Author 4", "1234567890");
+
+        Booking booking1 = QueryUtils.queryCreateBooking(connection, 1L, LocalDate.now().plusDays(1), LocalDate.now().plusDays(3), BookingState.ACTIVE, book1, citizenUser);
+        Booking booking2 = QueryUtils.queryCreateBooking(connection, 2L, LocalDate.now().plusDays(2), LocalDate.now().plusDays(4), BookingState.ACTIVE, book2, citizenUser);
+        QueryUtils.queryCreateBooking(connection, 3L, LocalDate.now().plusDays(3), LocalDate.now().plusDays(5), BookingState.ACTIVE, book3, citizenUser);
+        QueryUtils.queryCreateBooking(connection, 4L, LocalDate.now().plusDays(4), LocalDate.now().plusDays(6), BookingState.ACTIVE, book4, citizenUser);
+
+        request = RestAssured.given();
+        request.header("Authorization", "Bearer " + adminToken);
+        request.header("Content-type", "application/json");
+        request.queryParam("resultsPerPage", 2);
+        request.queryParam("pageNumber", 2);
+
+        response = executeGet(request, "/2/bookings");
+
+        response.then().statusCode(200).contentType("application/json");
+
+        body = response.getBody().asString();
+        responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+        assertTrue(responseBody.has("items"));
+        JsonArray itemsArray = responseBody.get("items").getAsJsonArray();
+        assertEquals(2, itemsArray.size());
+
+        JsonObject bookingObject = itemsArray.get(0).getAsJsonObject();
+        assertEquals(booking2.getId(), bookingObject.get("id").getAsLong());
+
+        bookingObject = itemsArray.get(1).getAsJsonObject();
+        assertEquals(booking1.getId(), bookingObject.get("id").getAsLong());
+
+        assertEquals(2, responseBody.get("pageNumber").getAsInt());
+        assertEquals(2, responseBody.get("resultsPerPage").getAsInt());
+        assertTrue(responseBody.get("totalResults").getAsInt() == 4);
+        assertTrue(responseBody.get("totalPages").getAsInt() == 2);
     }
-	
-    private static Stream<Arguments> testRegisterBooking_SuccessfulRegistrationArgumentsProvider() {
-        return Stream.of(
-            Arguments.of(ArticleState.AVAILABLE, ArticleState.BOOKED),
-            Arguments.of(ArticleState.ONLOAN, ArticleState.ONLOANBOOKED)
-        );
-    }
-	
+
 }

@@ -1,272 +1,557 @@
 package it.gurzu.SWAM.iLib.controllerTest;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.sql.SQLException;
+import java.time.LocalDate;
+import java.util.stream.Stream;
 
-import org.apache.commons.lang3.reflect.FieldUtils;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Mockito;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
-import it.gurzu.swam.iLib.controllers.BookingController;
-import it.gurzu.swam.iLib.controllers.LoanController;
-import it.gurzu.swam.iLib.controllers.UserController;
-import it.gurzu.swam.iLib.dao.UserDao;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+
+import io.restassured.RestAssured;
+import io.restassured.response.Response;
+import io.restassured.specification.RequestSpecification;
 import it.gurzu.swam.iLib.dto.UserDTO;
-import it.gurzu.swam.iLib.dto.UserDashboardDTO;
-import it.gurzu.swam.iLib.exceptions.SearchHasGivenNoResultsException;
-import it.gurzu.swam.iLib.exceptions.UserDoesNotExistException;
-import it.gurzu.swam.iLib.model.Article;
+import it.gurzu.swam.iLib.model.ArticleState;
+import it.gurzu.swam.iLib.model.Book;
 import it.gurzu.swam.iLib.model.Booking;
-import it.gurzu.swam.iLib.model.Loan;
+import it.gurzu.swam.iLib.model.BookingState;
 import it.gurzu.swam.iLib.model.User;
 import it.gurzu.swam.iLib.model.UserRole;
 
-public class UserControllerTest {
-	private UserController userController;
-	private UserDao userDaoMock;
-	private User userMock;
-	private BookingController bookingControllerMock;
-	private LoanController loanControllerMock;
-	
-	@BeforeEach
-	public void setup() throws IllegalAccessException {
-		userController = new UserController();
-		userDaoMock = mock(UserDao.class);
-		userMock = mock(User.class);
-		bookingControllerMock = mock(BookingController.class);
-		loanControllerMock = mock(LoanController.class);
-		
-		FieldUtils.writeField(userController, "userDao", userDaoMock, true);
-		FieldUtils.writeField(userController, "bookingController", bookingControllerMock, true);
-		FieldUtils.writeField(userController, "loanController", loanControllerMock, true);
-	}
-	
-	@Test
-	public void testAddUser_WhenEmailAlreadyRegistered_ThrowsIllegalArgumentException() {
-		UserDTO userDTO = mock(UserDTO.class);
-		when(userDTO.getEmail()).thenReturn("email");
-		when(userDaoMock.findUsersByEmail("email")).thenReturn(userMock);
-		
-		Exception thrownException = assertThrows(IllegalArgumentException.class, ()->{
-			userController.addUser(userDTO);
-		});
-		assertEquals("Email already registered!", thrownException.getMessage());	
+public class UserControllerTest extends ControllerTest {
+
+	private User adminUser;
+	private User citizenUser;
+	private String adminToken;
+	private String citizenToken;
+
+	private RequestSpecification request;
+	private Response response;
+	private String body;
+	private JsonObject responseBody;
+
+
+	@Override
+	protected void beforeEachInit() throws SQLException, IllegalAccessException {
+		setBaseURL("/iLib/v1/usersEndpoint");
+
+		QueryUtils.queryTruncateAll(connection);
+
+		adminUser = QueryUtils.queryCreateUser(connection, 10L, "admin@example.com", "admin password", "adminName",
+				"adminSurname", "adminAddress", "adminTelephoneNumber", UserRole.ADMINISTRATOR);
+		adminToken = AuthHelper.getAuthToken("admin@example.com", "admin password");
+
+		citizenUser = QueryUtils.queryCreateUser(connection, 20L, "user@Email.com", "user password", "name", "surname",
+				"address", "123432", UserRole.CITIZEN);
+		citizenToken = AuthHelper.getAuthToken("user@Email.com", "user password");
+
 	}
 
 	@Test
-	public void testAddUser_WhenPasswordMissing_ThrowsIllegalArgumentException() {
-		UserDTO userDTO = mock(UserDTO.class);
-		when(userDTO.getEmail()).thenReturn("email");
-		when(userDTO.getPlainPassword()).thenReturn(null);
+	public void testGetUser_WhereRequestingUserIsAdmin_CanRequestInfo()
+			throws IllegalAccessException, SQLException {
+
+		Book book = QueryUtils.queryCreateBook(connection, 1L, "upstairs", "cujo", LocalDate.now(), "publisher",
+				"horror", "a nice book", ArticleState.BOOKED, "King", "isbn");
+		Booking booking = QueryUtils.queryCreateBooking(connection, 1L, LocalDate.now(), LocalDate.now().plusDays(3),
+				BookingState.ACTIVE, book, citizenUser);
+
+		request = RestAssured.given();
+		request.header("Authorization", "Bearer" + adminToken);
+		request.header("Content-type", "application/json");
+		request.pathParam("userId", 20L);
+
+		response = executeGet(request, "/{userId}");
+
+		response.then().statusCode(200).contentType("application/json");
+
+		body = response.getBody().asString();
+		responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+		assertEquals(responseBody.get("id").getAsLong(), citizenUser.getId());
+		assertEquals(responseBody.get("email").getAsString(), citizenUser.getEmail());
+		assertEquals(responseBody.get("name").getAsString(), citizenUser.getName());
+		assertEquals(responseBody.get("surname").getAsString(), citizenUser.getSurname());
+		assertEquals(responseBody.get("address").getAsString(), citizenUser.getAddress());
+		assertEquals(responseBody.get("telephoneNumber").getAsString(), citizenUser.getTelephoneNumber());
+
+		JsonArray bookingsArray = responseBody.get("bookings").getAsJsonArray();
+		assertEquals(bookingsArray.size(), 1);
+
+		JsonObject bookingObject = bookingsArray.get(0).getAsJsonObject();
+		assertEquals(bookingObject.get("id").getAsLong(), booking.getId());
+		assertEquals(bookingObject.get("bookedArticleId").getAsLong(), booking.getBookedArticle().getId());
+		assertEquals(bookingObject.get("bookedArticleTitle").getAsString(), booking.getBookedArticle().getTitle());
+		assertEquals(bookingObject.get("bookingUserId").getAsLong(), booking.getBookingUser().getId());
+		assertEquals(bookingObject.get("state").getAsString(), booking.getState().toString());
+
+		JsonArray bookingDateArray = bookingObject.get("bookingDate").getAsJsonArray();
+		LocalDate bookingDateResponse = LocalDate.of(bookingDateArray.get(0).getAsInt(),
+				bookingDateArray.get(1).getAsInt(), bookingDateArray.get(2).getAsInt());
+		assertEquals(bookingDateResponse, booking.getBookingDate());
+
+		JsonArray bookingEndDateArray = bookingObject.get("bookingEndDate").getAsJsonArray();
+		LocalDate bookingEndDateResponse = LocalDate.of(bookingEndDateArray.get(0).getAsInt(),
+				bookingEndDateArray.get(1).getAsInt(), bookingEndDateArray.get(2).getAsInt());
+		assertEquals(bookingEndDateResponse, booking.getBookingEndDate());
+
+		assertTrue(responseBody.get("loans").isJsonNull());
 		
-		when(userDaoMock.findUsersByEmail("email")).thenReturn(null);
+		assertEquals(responseBody.get("totalBookings").getAsLong(), 1L);
+		assertEquals(responseBody.get("totalLoans").getAsLong(), 0L);
+	}
+
+	@Test
+	public void testGetUser_WhereRequestingUserIsSameUser_CanRequestInfo()
+			throws IllegalAccessException, SQLException {
+
+		Book book = QueryUtils.queryCreateBook(connection, 1L, "upstairs", "cujo", LocalDate.now(), "publisher",
+				"horror", "a nice book", ArticleState.BOOKED, "King", "isbn");
+		Booking booking = QueryUtils.queryCreateBooking(connection, 1L, LocalDate.now(), LocalDate.now().plusDays(3),
+				BookingState.ACTIVE, book, citizenUser);
+
+		request = RestAssured.given();
+		request.header("Authorization", "Bearer" + citizenToken);
+		request.header("Content-type", "application/json");
+		request.pathParam("userId", 20L);
+
+		response = executeGet(request, "/{userId}");
+
+		response.then().statusCode(200).contentType("application/json");
+
+		body = response.getBody().asString();
+		responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+		assertEquals(responseBody.get("id").getAsLong(), citizenUser.getId());
+		assertEquals(responseBody.get("email").getAsString(), citizenUser.getEmail());
+		assertEquals(responseBody.get("name").getAsString(), citizenUser.getName());
+		assertEquals(responseBody.get("surname").getAsString(), citizenUser.getSurname());
+		assertEquals(responseBody.get("address").getAsString(), citizenUser.getAddress());
+		assertEquals(responseBody.get("telephoneNumber").getAsString(), citizenUser.getTelephoneNumber());
+
+		JsonArray bookingsArray = responseBody.get("bookings").getAsJsonArray();
+		assertEquals(bookingsArray.size(), 1);
+
+		JsonObject bookingObject = bookingsArray.get(0).getAsJsonObject();
+		assertEquals(bookingObject.get("id").getAsLong(), booking.getId());
+		assertEquals(bookingObject.get("bookedArticleId").getAsLong(), booking.getBookedArticle().getId());
+		assertEquals(bookingObject.get("bookedArticleTitle").getAsString(), booking.getBookedArticle().getTitle());
+		assertEquals(bookingObject.get("bookingUserId").getAsLong(), booking.getBookingUser().getId());
+		assertEquals(bookingObject.get("state").getAsString(), booking.getState().toString());
+
+		JsonArray bookingDateArray = bookingObject.get("bookingDate").getAsJsonArray();
+		LocalDate bookingDateResponse = LocalDate.of(bookingDateArray.get(0).getAsInt(),
+				bookingDateArray.get(1).getAsInt(), bookingDateArray.get(2).getAsInt());
+		assertEquals(bookingDateResponse, booking.getBookingDate());
+
+		JsonArray bookingEndDateArray = bookingObject.get("bookingEndDate").getAsJsonArray();
+		LocalDate bookingEndDateResponse = LocalDate.of(bookingEndDateArray.get(0).getAsInt(),
+				bookingEndDateArray.get(1).getAsInt(), bookingEndDateArray.get(2).getAsInt());
+		assertEquals(bookingEndDateResponse, booking.getBookingEndDate());
+
+		assertTrue(responseBody.get("loans").isJsonNull());
 		
-		Exception thrownException = assertThrows(IllegalArgumentException.class, ()->{
-			userController.addUser(userDTO);
-		});
-		assertEquals("Password is required!", thrownException.getMessage());	
+		assertEquals(responseBody.get("totalBookings").getAsLong(), 1L);
+		assertEquals(responseBody.get("totalLoans").getAsLong(), 0L);
 	}
 
 	
 	@Test
-	public void testAddUserSuccessful() {
-		when(userDaoMock.findUsersByEmail("inexistingEmail")).thenReturn(null);
+	public void testGetUserInfo_WhenUserNotAdminAndDifferentId_ReturnsUnauthorizedResponse()
+			throws IllegalAccessException, SQLException {
+
+		request = RestAssured.given();
+		request.header("Authorization", "Bearer" + citizenToken);
+		request.header("Content-type", "application/json");
+		request.pathParam("userId", 10L);
+
+		response = executeGet(request, "/{userId}");
+
+		response.then().statusCode(403);
+	}
+
+	@Test
+	public void testGetUserInfo_WhenRequestedUserDoesNotExist_ReturnsNotFoundResponse() {
+		request = RestAssured.given();
+		request.header("Authorization", "Bearer" + adminToken);
+		request.header("Content-type", "application/json");
+		request.pathParam("userId", 7L);
+
+		response = executeGet(request, "/{userId}");
+
+		response.then().statusCode(404);
 		
+		body = response.getBody().asString();
+
+		assertTrue(body.contains("User does not exist!"));
+	}
+
+	@Test
+	public void testCreateUser_WhenRoleIsNotAdministrator_ReturnsForbiddenResponse() {
+		request = RestAssured.given();
+		request.header("Authorization", "Bearer" + citizenToken);
+		request.header("Content-type", "application/json");
+
+		response = executePost(request, "");
+
+		response.then().statusCode(403);
+		
+		body = response.getBody().asString();
+
+		assertEquals("Access forbidden: role not allowed", body);
+	}
+	
+
+	@Test
+	public void testCreateUser_WhenRoleIsAdministrator() {
 		UserDTO userDTO = new UserDTO();
-		userDTO.setName("name");
-		userDTO.setSurname("surname");
-		userDTO.setEmail("email");
-		userDTO.setPlainPassword("password");
-		userDTO.setAddress("address");
+		userDTO.setEmail("newuser@example.com");
+		userDTO.setPlainPassword("password123");
+		userDTO.setName("New");
+		userDTO.setSurname("User");
+		userDTO.setAddress("New Address");
 		userDTO.setTelephoneNumber("1234567890");
-		
-	    userController.addUser(userDTO);
-	    
-	    ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
-	    verify(userDaoMock).save(userCaptor.capture());
-	    
-	    User savedUser = userCaptor.getValue();
+
+		request = RestAssured.given();
+		request.header("Authorization", "Bearer " + adminToken);
+		request.header("Content-type", "application/json");
+		request.body(userDTO);
+
+		response = executePost(request, "/");
+
+		response.then().statusCode(201).contentType("application/json");
+
+		body = response.getBody().asString();
+		responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+		assertTrue(responseBody.has("userId"));
+	}
+	
+	
+	   @Test
+	    public void testCreateUser_WhenEmailAlreadyExists_ReturnsBadRequestResponse() throws SQLException, IllegalAccessException {
+	        UserDTO userDTO = new UserDTO();
+	        userDTO.setEmail(citizenUser.getEmail());
+	        userDTO.setPlainPassword("password123");
+	        userDTO.setName("New");
+	        userDTO.setSurname("User");
+	        userDTO.setAddress("New Address");
+	        userDTO.setTelephoneNumber("1234567890");
+
+	        request = RestAssured.given();
+	        request.header("Authorization", "Bearer " + adminToken);
+	        request.header("Content-type", "application/json");
+	        request.body(userDTO);
+
+	        response = executePost(request, "/");
+
+	        response.then().statusCode(400).contentType("application/json");
+
+	        body = response.getBody().asString();
+	        responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+	        assertEquals("Email already registered!", responseBody.get("error").getAsString());
+	    }
+
+	   @ParameterizedTest
+	   @MethodSource("provideInvalidUserData")
+	   public void testCreateUser_InvalidData(UserDTO userDTO, String expectedErrorMessage) {
+	        request = RestAssured.given();
+	        request.header("Authorization", "Bearer " + adminToken);
+	        request.header("Content-type", "application/json");
+	        request.body(userDTO);
+
+	        response = executePost(request, "/");
+
+	        response.then().statusCode(400).contentType("text/plain;charset=UTF-8");
+
+	        body = response.getBody().asString();
+	        assertTrue(body.contains(expectedErrorMessage));
+	   }
 	   
-	    assertEquals(userDTO.getName(), savedUser.getName());
-	    assertEquals(userDTO.getSurname(), savedUser.getSurname());
-	    assertEquals(userDTO.getEmail(), savedUser.getEmail());
-	    assertTrue(new BCryptPasswordEncoder().matches(userDTO.getPlainPassword(), savedUser.getPassword()));
-	    assertEquals(userDTO.getAddress(), savedUser.getAddress());
-	    assertEquals(userDTO.getTelephoneNumber(), savedUser.getTelephoneNumber());
-	    assertEquals(UserRole.CITIZEN, savedUser.getRole());
-	}
+
+	    @Test
+	    public void testCreateUser_MissingPassword() {
+	        UserDTO userDTO = createUserDTO("email@asd.com", "name", "surname", "1234567890");
+
+	        request = RestAssured.given();
+	        request.header("Authorization", "Bearer " + adminToken);
+	        request.header("Content-type", "application/json");
+	        request.body(userDTO);
+
+	        response = executePost(request, "/");
+
+	        response.then().statusCode(400).contentType("application/json");
+
+	        body = response.getBody().asString();
+	        responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+	        assertEquals("Password is required!", responseBody.get("error").getAsString());
+	    }
+
+	    @Test
+	    public void testUpdateUser_Success() {
+	        UserDTO userDTO = new UserDTO();
+	        userDTO.setEmail("updateduser@example.com");
+	        userDTO.setPlainPassword("newpassword123");
+	        userDTO.setName("Updated");
+	        userDTO.setSurname("User");
+	        userDTO.setAddress("Updated Address");
+	        userDTO.setTelephoneNumber("0987654321");
+
+	        request = RestAssured.given();
+	        request.header("Authorization", "Bearer " + adminToken);
+	        request.header("Content-type", "application/json");
+	        request.pathParam("userId", citizenUser.getId());
+	        request.body(userDTO);
+
+	        response = executePut(request, "/{userId}");
+
+	        response.then().statusCode(200).contentType("application/json");
+
+	        body = response.getBody().asString();
+	        responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+	        assertEquals("User updated successfully.", responseBody.get("message").getAsString());
+	    }
+
+	    @Test
+	    public void testUpdateUser_Forbidden() {
+	        UserDTO userDTO = new UserDTO();
+	        userDTO.setEmail("updateduser@example.com");
+	        userDTO.setPlainPassword("newpassword123");
+	        userDTO.setName("Updated");
+	        userDTO.setSurname("User");
+	        userDTO.setAddress("Updated Address");
+	        userDTO.setTelephoneNumber("0987654321");
+
+	        request = RestAssured.given();
+	        request.header("Authorization", "Bearer " + citizenToken);
+	        request.header("Content-type", "application/json");
+	        request.pathParam("userId", adminUser.getId());
+	        request.body(userDTO);
+
+	        response = executePut(request, "/{userId}");
+
+	        response.then().statusCode(403);
+	    }
+
+	    @Test
+	    public void testUpdateUser_UserNotFound() {
+	        UserDTO userDTO = new UserDTO();
+	        userDTO.setEmail("updateduser@example.com");
+	        userDTO.setPlainPassword("newpassword123");
+	        userDTO.setName("Updated");
+	        userDTO.setSurname("User");
+	        userDTO.setAddress("Updated Address");
+	        userDTO.setTelephoneNumber("0987654321");
+
+	        request = RestAssured.given();
+	        request.header("Authorization", "Bearer " + adminToken);
+	        request.header("Content-type", "application/json");
+	        request.pathParam("userId", 9999L);
+	        request.body(userDTO);
+
+	        response = executePut(request, "/{userId}");
+
+	        response.then().statusCode(404).contentType("application/json");
+
+	        body = response.getBody().asString();
+	        responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+	        assertEquals("User does not exist!", responseBody.get("error").getAsString());
+	    }
 	
-	@Test
-	public void testUpdateUser_WhenUserDoesNotExist_ThrowsUserDoesNotExistException() {
-		UserDTO userDTO = new UserDTO();
-		when(userDaoMock.findById(1L)).thenReturn(null);
-		
-		Exception thrownException = assertThrows(UserDoesNotExistException.class, ()->{
-			userController.updateUser(1L, userDTO);
-		});
-		assertEquals("User does not exist!", thrownException.getMessage());	
-	}
+	    @ParameterizedTest
+	    @MethodSource("provideInvalidUserData")
+	    public void testUpdateUser_InvalidEmailFormat(UserDTO userDTO, String expectedErrorMessage) {
+	        request = RestAssured.given();
+	        request.header("Authorization", "Bearer " + adminToken);
+	        request.header("Content-type", "application/json");
+	        request.pathParam("userId", citizenUser.getId());
+	        request.body(userDTO);
 
-	@Test
-	public void testUpdateUser_WhenUserDoesExist() {
-		UserDTO userDTO = new UserDTO();
-		
-		userDTO.setEmail("new email");
-		userDTO.setPlainPassword("new plain password");
-		userDTO.setName("new name");
-		userDTO.setSurname("new surname");
-		userDTO.setAddress("new address");
-		userDTO.setTelephoneNumber("0987654321");
-		
-	    User existingUser = mock(User.class);
-	    when(userDaoMock.findById(1L)).thenReturn(existingUser);
+	        response = executePut(request, "/{userId}");
 
-	    userController.updateUser(1L, userDTO);
+	        response.then().statusCode(400).contentType("text/plain;charset=UTF-8");
+
+	        body = response.getBody().asString();
+	        assertTrue(body.contains(expectedErrorMessage));
+	    }
+	        
+	    @Test
+	    public void testSearchUsers_Success() {
+	        request = RestAssured.given();
+	        request.header("Authorization", "Bearer " + adminToken);
+	        request.header("Content-type", "application/json");
+	        request.queryParam("email", "user@Email.com");
+
+	        response = executeGet(request, "/");
+
+	        response.then().statusCode(200).contentType("application/json");
+
+	        body = response.getBody().asString();
+	        responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+	        assertTrue(responseBody.has("items"));
+	        assertEquals(1, responseBody.get("items").getAsJsonArray().size());
+	        JsonObject userObject = responseBody.get("items").getAsJsonArray().get(0).getAsJsonObject();
+	      
+	        assertEquals(citizenUser.getEmail(), userObject.get("email").getAsString());
+	        assertEquals(citizenUser.getName(), userObject.get("name").getAsString());
+	        assertEquals(citizenUser.getSurname(), userObject.get("surname").getAsString());
+	        assertEquals(citizenUser.getAddress(), userObject.get("address").getAsString());
+	        assertEquals(citizenUser.getTelephoneNumber(), userObject.get("telephoneNumber").getAsString());
+
+	        assertEquals(1, responseBody.get("pageNumber").getAsInt());
+	        assertEquals(10, responseBody.get("resultsPerPage").getAsInt());
+	        assertEquals(1, responseBody.get("totalResults").getAsInt());
+	        assertEquals(1, responseBody.get("totalPages").getAsInt());
+	    }
 	    
-	    verify(userDaoMock).save(existingUser);
-	    verify(existingUser).setEmail(userDTO.getEmail());
-	    verify(existingUser).setName(userDTO.getName());
-	    verify(existingUser).setSurname(userDTO.getSurname());
-	    verify(existingUser).setAddress(userDTO.getAddress());
-	    verify(existingUser).setTelephoneNumber(userDTO.getTelephoneNumber());
+	    @Test
+	    public void testSearchUsers_Unauthorized() {
+	        request = RestAssured.given();
+	        request.header("Authorization", "Bearer " + citizenToken);
+	        request.header("Content-type", "application/json");
+	        request.queryParam("email", "user@Email.com");
 
-	    ArgumentCaptor<String> passwordCaptor = ArgumentCaptor.forClass(String.class);
-        verify(existingUser).setPassword(passwordCaptor.capture());
+	        response = executeGet(request, "/");
 
-        String capturedPassword = passwordCaptor.getValue();
-        assertTrue(new BCryptPasswordEncoder().matches(userDTO.getPlainPassword(), capturedPassword));
-        
-	}
-	
-	@Test
-	public void testSearchUsers_WhenEmailIsNotNull_PerformsFindUsersByEmail() {
-		when(userDaoMock.findUsersByEmail("email")).thenReturn(userMock);
-	
-		userController.searchUsers("email", null, null, null, 0, 0);
-		
-		verify(userDaoMock).findUsersByEmail("email");
-	}
-	
-	@Test
-	public void testSearchUsers_WhenEmailIsNotNullAndNoResults_ThrowsSearchHasGivenNoResultsException() {
-        when(userDaoMock.findUsersByEmail(anyString())).thenThrow(new RuntimeException());
-		
-		Exception thrownException = assertThrows(SearchHasGivenNoResultsException.class, ()->{
-			userController.searchUsers("non existing email", null, null, null, 0, 0);
-		});
-		assertEquals("Search has given no results!", thrownException.getMessage());	
-	}
+	        response.then().statusCode(403).contentType("text/html;charset=UTF-8");
+	    }
 
-	@Test
-	public void testSearchUsers_WhenEmailIsNull_PerformsNormalSearch() {
-		List<User> retrievedUsers = new ArrayList<User>();
-		retrievedUsers.add(userMock);
-		when(userDaoMock.findUsers(null, null, null, 0, 0)).thenReturn(retrievedUsers);
-		
-		userController.searchUsers(null, null, null, null, 0, 0);
-		
-		verify(userDaoMock, never()).findUsersByEmail(Mockito.anyString());
-		verify(userDaoMock).findUsers(null, null, null, 0, 0);
-	}
-	
-	@Test
-	public void testSearchUsers_WhenEmailIsNullAndNoResults_ThrowsSearchHasGivenNoResultsException() {
-		List<User> retrievedUsers = new ArrayList<User>();
-		retrievedUsers.add(userMock);
-		when(userDaoMock.findUsers(null, null, null, 0, 0)).thenReturn(Collections.emptyList());
+	    @Test
+	    public void testSearchUsers_InvalidPaginationParameters() {
+	        request = RestAssured.given();
+	        request.header("Authorization", "Bearer " + adminToken);
+	        request.header("Content-type", "application/json");
+	        request.queryParam("pageNumber", 0); // Invalid page number
 
-		Exception thrownException = assertThrows(SearchHasGivenNoResultsException.class, ()->{
-			userController.searchUsers(null, null, null, null, 0 ,0);
-		});
-		assertEquals("Search has given no results!", thrownException.getMessage());	
-		
-	}
+	        response = executeGet(request, "/");
 
-    @Test
-    public void testCountUsersWithValidParameters() {
-    	userController.countUsers(null, "John", "Snow", "123456789");
+	        response.then().statusCode(400).contentType("application/json");
 
-    	verify(userDaoMock).countUsers("John", "Snow", "123456789");
-    }
+	        body = response.getBody().asString();
+	        responseBody = JsonParser.parseString(body).getAsJsonObject();
 
-    @Test
-    public void testCountUsersWithEmailParameterNotNull() {
-    	Long count = userController.countUsers("email@example.com", "John", "Snow", "123456789");
+	        assertEquals("Pagination parameters incorrect!", responseBody.get("error").getAsString());
+	    }
 
-    	verify(userDaoMock, never()).countUsers("John", "Snow", "123456789");
-    	assertEquals(1, count);
-    }
-	
-	@Test
-	public void testGetUserInfoExtended_WhenUserDoesNotExist_ThrowsUserDoesNotExistException() {
-	    when(userDaoMock.findById(1L)).thenReturn(null);
+	    @Test
+	    public void testSearchUsers_NoResults() {
+	        request = RestAssured.given();
+	        request.header("Authorization", "Bearer " + adminToken);
+	        request.header("Content-type", "application/json");
+	        request.queryParam("email", "nonexistent@Email.com");
 
-		Exception thrownException = assertThrows(UserDoesNotExistException.class, ()->{
-			userController.getUserInfoExtended(1L);
-		});
-		assertEquals("User does not exist!", thrownException.getMessage());	
-	}
+	        response = executeGet(request, "/");
 
-    @Test
-    public void testGetUserInfoExtended_WhenUserExists_ReturnsUserDTO() {
-        User mockUser = mock(User.class);
-        Article mockArticle = mock(Article.class);
-        Booking mockBooking = mock(Booking.class);
-        Loan mockLoan = mock(Loan.class);
+	        response.then().statusCode(404).contentType("application/json");
 
-        when(mockUser.getId()).thenReturn(1L);
-        when(mockUser.getName()).thenReturn("Mihail");
-        when(mockUser.getSurname()).thenReturn("Teodor");
-        when(mockUser.getEmail()).thenReturn("email");
-        when(mockUser.getAddress()).thenReturn("address");
-        when(mockUser.getTelephoneNumber()).thenReturn("1234567890");
-        
-        when(mockBooking.getBookedArticle()).thenReturn(mockArticle);
-        when(mockBooking.getBookingUser()).thenReturn(mockUser);
-        when(mockBooking.getId()).thenReturn(10L); // Example ID for the booking
-        
-        when(mockLoan.getArticleOnLoan()).thenReturn(mockArticle);
-        when(mockLoan.getLoaningUser()).thenReturn(mockUser);
-        when(mockLoan.getId()).thenReturn(20L); // Example ID for the loan
+	        body = response.getBody().asString();
+	        responseBody = JsonParser.parseString(body).getAsJsonObject();
 
-        when(mockArticle.getId()).thenReturn(2L);
-        
-        when(userDaoMock.findById(1L)).thenReturn(mockUser);
-        when(bookingControllerMock.getBookingsByUser(1L, 0, 5)).thenReturn(Collections.singletonList(mockBooking));
-        when(loanControllerMock.getLoansByUser(1L, 0, 5)).thenReturn(Collections.singletonList(mockLoan));
-        when(bookingControllerMock.countBookingsByUser(1L)).thenReturn(1L);
-        when(loanControllerMock.countLoansByUser(1L)).thenReturn(1L);
+	        assertEquals("Search has given no results!", responseBody.get("error").getAsString());
+	    }
 
-        UserDashboardDTO result = userController.getUserInfoExtended(1L);
+	    @Test
+	    public void testSearchUsers_MultipleResults() throws IllegalAccessException, SQLException {
+	    	
+	        QueryUtils.queryCreateUser(connection, 30L, "user1@Email.com", "user password", "Alice", "Brown", "Address1", "1234321", UserRole.CITIZEN);
+	        QueryUtils.queryCreateUser(connection, 40L, "user2@Email.com", "user password", "Bob", "Johnson", "Address2", "1234322", UserRole.CITIZEN);
+	        QueryUtils.queryCreateUser(connection, 50L, "user3@Email.com", "user password", "Charlie", "Brown", "Address3", "1234323", UserRole.CITIZEN);
 
-        assertNotNull(result);
-        assertEquals(mockUser.getName(), result.getName());
-        assertEquals(mockUser.getSurname(), result.getSurname());
-        assertEquals(mockUser.getEmail(), result.getEmail());
-        assertEquals(mockUser.getAddress(), result.getAddress());
-        assertEquals(mockUser.getTelephoneNumber(), result.getTelephoneNumber());
-        assertEquals(1, result.getBookings().size());
-        assertEquals(Long.valueOf(10L), result.getBookings().get(0).getId());
-        
-        assertEquals(1, result.getLoans().size());
-        assertEquals(Long.valueOf(20L), result.getLoans().get(0).getId());
+	        request = RestAssured.given();
+	        request.header("Authorization", "Bearer " + adminToken);
+	        request.header("Content-type", "application/json");
+	        request.queryParam("surname", "Brown");
 
-        assertEquals(1L, result.getTotalBookings());
-        assertEquals(1L, result.getTotalLoans());
-    }
+	        response = executeGet(request, "/");
 
+	        response.then().statusCode(200).contentType("application/json");
+
+	        body = response.getBody().asString();
+	        responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+	        assertTrue(responseBody.has("items"));
+	        JsonArray itemsArray = responseBody.get("items").getAsJsonArray();
+	        assertEquals(2, itemsArray.size());
+
+	        for (int i = 0; i < itemsArray.size(); i++) {
+	            JsonObject userObject = itemsArray.get(i).getAsJsonObject();
+	            assertEquals(userObject.get("surname").getAsString(), "Brown");
+	        }
+	        
+	        assertEquals(1, responseBody.get("pageNumber").getAsInt());
+	        assertEquals(10, responseBody.get("resultsPerPage").getAsInt());
+	        assertTrue(responseBody.get("totalResults").getAsInt() == 2);
+	        assertTrue(responseBody.get("totalPages").getAsInt() == 1);
+	    }
+
+	    @Test
+	    public void testSearchUsers_Pagination() throws IllegalAccessException, SQLException {
+	        QueryUtils.queryCreateUser(connection, 30L, "user1@Email.com", "user password", "Alice", "Brown", "Address1", "1234321", UserRole.CITIZEN);
+	        QueryUtils.queryCreateUser(connection, 40L, "user2@Email.com", "user password", "Bob", "Johnson", "Address2", "1234322", UserRole.CITIZEN);
+	        QueryUtils.queryCreateUser(connection, 50L, "user3@Email.com", "user password", "Charlie", "Brown", "Address3", "1234323", UserRole.CITIZEN);
+
+	        request = RestAssured.given();
+	        request.header("Authorization", "Bearer " + adminToken);
+	        request.header("Content-type", "application/json");
+	        request.queryParam("resultsPerPage", 2);
+	        request.queryParam("pageNumber", 2);
+
+	        response = executeGet(request, "/");
+
+	        response.then().statusCode(200).contentType("application/json");
+
+	        body = response.getBody().asString();
+	        responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+	        assertTrue(responseBody.has("items"));
+
+	        JsonArray itemsArray = responseBody.get("items").getAsJsonArray();
+	        assertEquals(2, itemsArray.size());
+
+	        // first page contains adminUser and charlie; the third page would contain the citizenUser
+	        assertEquals("user2@Email.com", itemsArray.get(0).getAsJsonObject().get("email").getAsString());
+	        assertEquals("user3@Email.com", itemsArray.get(1).getAsJsonObject().get("email").getAsString());
+
+	        assertEquals(2, responseBody.get("pageNumber").getAsInt());
+	        assertEquals(2, responseBody.get("resultsPerPage").getAsInt());
+	        assertTrue(responseBody.get("totalResults").getAsInt() == 5);
+	        assertTrue(responseBody.get("totalPages").getAsInt() == 3);
+	    }
+	    
+	    private static Stream<Arguments> provideInvalidUserData(){
+	    	return Stream.of(
+	    			Arguments.of(createUserDTO(null,  "name", "surname", "1234567890"), "Email is required"),
+	    			Arguments.of(createUserDTO("email.com", "name", "surname", "1234567890"), "Invalid email format"),
+	    			Arguments.of(createUserDTO("email@test.com", null, "surname", "1234567890"), "Name is required"),
+	    			Arguments.of(createUserDTO("email@test.com", "name", null, "1234567890"), "Surname is required"),
+	    			Arguments.of(createUserDTO("email@test.com", "name", "surname", null), "Telephone number is required"),
+	    			Arguments.of(createUserDTO("email@test.com", "name", "surname", "123425"), "The Telephone Number must be 10 characters long")
+	    			);
+	    }
+	    
+	    private static UserDTO createUserDTO(String email, String name, String surname, String telephoneNumber) {
+	    	UserDTO userDTO= new UserDTO();
+	    	
+	    	userDTO.setEmail(email);
+	    	userDTO.setName(name);
+	    	userDTO.setSurname(surname);
+	    	userDTO.setTelephoneNumber(telephoneNumber);
+	    	
+	    	return userDTO;
+	    	
+	    }
 }

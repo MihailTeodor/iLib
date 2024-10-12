@@ -1,4 +1,4 @@
-package it.gurzu.SWAM.iLib.rest.servicesTest;
+package it.gurzu.SWAM.iLib.controllerTest;
 
 import java.io.InputStreamReader;
 import java.io.Reader;
@@ -19,7 +19,7 @@ import io.restassured.RestAssured;
 import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
 
-public abstract class ServiceTest {
+public abstract class ControllerTest {
 	private String baseURL;
 
 	private static String DBconnectionURL;
@@ -31,7 +31,7 @@ public abstract class ServiceTest {
 	@BeforeAll
 	public static void setup() throws SQLException, ClassNotFoundException, NamingException {
 
-		Reader json = new InputStreamReader(ServiceTest.class.getResourceAsStream("/configurations.json"));
+		Reader json = new InputStreamReader(ControllerTest.class.getResourceAsStream("/configurations.json"));
 		JsonObject jsonObject = JsonParser.parseReader(json).getAsJsonObject();
 		JsonObject rest = jsonObject.get("rest").getAsJsonObject();
 		String baseURI = rest.get("baseURI").getAsString();

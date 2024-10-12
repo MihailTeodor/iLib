@@ -1,12 +1,12 @@
-package it.gurzu.swam.iLib.rest.services;
+package it.gurzu.swam.iLib.controllers;
 
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
-import it.gurzu.swam.iLib.controllers.UserController;
 import it.gurzu.swam.iLib.dto.LoginDTO;
 import it.gurzu.swam.iLib.exceptions.SearchHasGivenNoResultsException;
 import it.gurzu.swam.iLib.model.User;
 import it.gurzu.swam.iLib.rest.JWTUtil;
+import it.gurzu.swam.iLib.services.UserService;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.Consumes;
@@ -17,10 +17,10 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
 @Path("/auth")
-public class AuthenticationEndpoint {
+public class AuthenticationController {
 
 	@Inject
-	UserController userController;
+	UserService userService;
 
 	@POST
 	@Path("/login")
@@ -28,7 +28,7 @@ public class AuthenticationEndpoint {
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response loginUser(@Valid LoginDTO credentials) {
 		try {
-			User user = userController.searchUsers(credentials.getEmail(), null, null, null, 0, 1).get(0);
+			User user = userService.searchUsers(credentials.getEmail(), null, null, null, 0, 1).get(0);
 			if (!new BCryptPasswordEncoder().matches(credentials.getPassword(), user.getPassword()))
 				return Response.status(Response.Status.UNAUTHORIZED)
 						.entity("{\"error\": \"" + "Credentials are invalid." + "\"}").build();

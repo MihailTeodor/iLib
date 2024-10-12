@@ -1,4 +1,4 @@
-package it.gurzu.SWAM.iLib.rest.servicesTest;
+package it.gurzu.SWAM.iLib.controllerTest;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -20,7 +20,7 @@ import io.restassured.specification.RequestSpecification;
 import it.gurzu.swam.iLib.dto.LoginDTO;
 import it.gurzu.swam.iLib.model.UserRole;
 
-public class AuthenticationEndpointTest extends ServiceTest {
+public class AuthenticationControllerTest extends ControllerTest {
 
 	private RequestSpecification request;
 	private Response response;

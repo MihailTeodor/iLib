@@ -1,640 +1,584 @@
 package it.gurzu.SWAM.iLib.controllerTest;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
+import java.sql.SQLException;
 import java.time.LocalDate;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
 import java.util.stream.Stream;
 
-import org.apache.commons.lang3.reflect.FieldUtils;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.mockito.ArgumentCaptor;
 
-import it.gurzu.swam.iLib.controllers.ArticleController;
-import it.gurzu.swam.iLib.dao.ArticleDao;
-import it.gurzu.swam.iLib.dao.BookDao;
-import it.gurzu.swam.iLib.dao.BookingDao;
-import it.gurzu.swam.iLib.dao.LoanDao;
-import it.gurzu.swam.iLib.dao.MagazineDao;
-import it.gurzu.swam.iLib.dao.MovieDVDDao;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+
+import io.restassured.RestAssured;
+import io.restassured.response.Response;
+import io.restassured.specification.RequestSpecification;
 import it.gurzu.swam.iLib.dto.ArticleDTO;
 import it.gurzu.swam.iLib.dto.ArticleType;
-import it.gurzu.swam.iLib.exceptions.ArticleDoesNotExistException;
-import it.gurzu.swam.iLib.exceptions.InvalidOperationException;
-import it.gurzu.swam.iLib.exceptions.InvalidStateTransitionException;
-import it.gurzu.swam.iLib.exceptions.SearchHasGivenNoResultsException;
-import it.gurzu.swam.iLib.model.Article;
+import it.gurzu.swam.iLib.dto.BookingDTO;
+import it.gurzu.swam.iLib.dto.LoanDTO;
 import it.gurzu.swam.iLib.model.ArticleState;
 import it.gurzu.swam.iLib.model.Book;
-import it.gurzu.swam.iLib.model.Booking;
 import it.gurzu.swam.iLib.model.BookingState;
-import it.gurzu.swam.iLib.model.Loan;
-import it.gurzu.swam.iLib.model.Magazine;
-import it.gurzu.swam.iLib.model.ModelFactory;
-import it.gurzu.swam.iLib.model.MovieDVD;
 import it.gurzu.swam.iLib.model.User;
+import it.gurzu.swam.iLib.model.UserRole;
 
-public class ArticleControllerTest {
+public class ArticleControllerTest extends ControllerTest {
+	private String adminToken;
+	private String citizenToken;
 
-	private ArticleController articleController;
-	private ArticleDao articleDaoMock;
-	private BookDao bookDaoMock;
-	private MagazineDao magazineDaoMock;
-	private MovieDVDDao movieDVDDaoMock;
-	private BookingDao bookingDaoMock;
-	private LoanDao loanDaoMock;
+	private RequestSpecification request;
+	private Response response;
+	private String body;
+	private JsonObject responseBody;
 
-	@BeforeEach
-	public void setup() throws IllegalAccessException {
-		articleController = new ArticleController();
-		articleDaoMock = mock(ArticleDao.class);
-		bookDaoMock = mock(BookDao.class);
-		magazineDaoMock = mock(MagazineDao.class);
-		movieDVDDaoMock = mock(MovieDVDDao.class);
-		bookingDaoMock = mock(BookingDao.class);
-		loanDaoMock = mock(LoanDao.class);
+	@Override
+	protected void beforeEachInit() throws SQLException, IllegalAccessException {
+		setBaseURL("/iLib/v1/articlesEndpoint");
 
-		FieldUtils.writeField(articleController, "articleDao", articleDaoMock, true);
-		FieldUtils.writeField(articleController, "bookDao", bookDaoMock, true);
-		FieldUtils.writeField(articleController, "magazineDao", magazineDaoMock, true);
-		FieldUtils.writeField(articleController, "movieDVDDao", movieDVDDaoMock, true);
-		FieldUtils.writeField(articleController, "bookingDao", bookingDaoMock, true);
-		FieldUtils.writeField(articleController, "loanDao", loanDaoMock, true);
+		QueryUtils.queryTruncateAll(connection);
+
+		QueryUtils.queryCreateUser(connection, 1L, "admin@example.com", "admin password", "adminName",
+				"adminSurname", "adminAddress", "adminTelephoneNumber", UserRole.ADMINISTRATOR);
+		adminToken = AuthHelper.getAuthToken("admin@example.com", "admin password");
+
+		QueryUtils.queryCreateUser(connection, 2L, "user@Email.com", "user password", "name", "surname",
+				"address", "123432", UserRole.CITIZEN);
+		citizenToken = AuthHelper.getAuthToken("user@Email.com", "user password");
 	}
 
 	@Test
-	public void testAddArticle() {
-		ArticleDTO articleDTO = new ArticleDTO();
-		articleDTO.setType(ArticleType.BOOK);
-		articleDTO.setIsbn("isbn");
-		articleDTO.setAuthor("author");
-		articleDTO.setDescription("description");
-		articleDTO.setGenre("genre");
-		articleDTO.setLocation("location");
-		articleDTO.setPublisher("publisher");
-		articleDTO.setTitle("title");
-		articleDTO.setYearEdition(LocalDate.now());
+	public void testCreateArticle_Success() {
+		ArticleDTO articleDTO = createArticleDTO(1L, ArticleType.BOOK, "Shelf 1", "A Great Book",
+				LocalDate.now().minusYears(1), "Publisher", "Fiction", "Description", ArticleState.AVAILABLE, "Author",
+				"1234567890", null, null, null, null, null, null);
 
-		articleController.addArticle(articleDTO);
+		request = RestAssured.given();
+		request.header("Authorization", "Bearer " + adminToken);
+		request.header("Content-type", "application/json");
+		request.body(articleDTO);
 
-		ArgumentCaptor<Article> articleCaptor = ArgumentCaptor.forClass(Article.class);
-		verify(articleDaoMock).save(articleCaptor.capture());
+		response = executePost(request, "/");
 
-		Article savedArticle = articleCaptor.getValue();
+		response.then().statusCode(201).contentType("application/json");
 
-		assertTrue(savedArticle instanceof Book);
-		assertEquals(articleDTO.getIsbn(), ((Book) savedArticle).getIsbn());
-		assertEquals(articleDTO.getAuthor(), ((Book) savedArticle).getAuthor());
-		assertEquals(articleDTO.getDescription(), savedArticle.getDescription());
-		assertEquals(articleDTO.getGenre(), savedArticle.getGenre());
-		assertEquals(articleDTO.getLocation(), savedArticle.getLocation());
-		assertEquals(articleDTO.getPublisher(), savedArticle.getPublisher());
-		assertEquals(articleDTO.getTitle(), savedArticle.getTitle());
-		assertEquals(articleDTO.getYearEdition(), savedArticle.getYearEdition());
-	}
+		body = response.getBody().asString();
+		responseBody = JsonParser.parseString(body).getAsJsonObject();
 
-	@Test
-	public void testUpdateArticle_WhenArticleToUpdateDoesNotExist_ThrowsArticleDoesNotExistException() {
-		ArticleDTO articleDTO = new ArticleDTO();
-		when(articleDaoMock.findById(1L)).thenReturn(null);
-		Exception thrownException = assertThrows(ArticleDoesNotExistException.class, () -> {
-			articleController.updateArticle(1L, articleDTO);
-
-		});
-		assertEquals("Article does not exist!", thrownException.getMessage());
-	}
-
-	@Test
-	public void testUpdateArticle_Book_TypeMismatch_ThrowsIllegalArgumentException() {
-		ArticleDTO articleDTO = new ArticleDTO();
-		articleDTO.setType(ArticleType.BOOK);
-		when(articleDaoMock.findById(1L)).thenReturn(ModelFactory.magazine());
-
-		Exception thrownException = assertThrows(IllegalArgumentException.class, () -> {
-			articleController.updateArticle(1L, articleDTO);
-		});
-		assertEquals("Cannot change type of Article", thrownException.getMessage());
-	}
-
-	@Test
-	public void testUpdateArticle_Book_WhenIsbnIsNull_ThrowsIllegalArgumentException() {
-		ArticleDTO articleDTO = new ArticleDTO();
-		articleDTO.setType(ArticleType.BOOK);
-		when(articleDaoMock.findById(1L)).thenReturn(ModelFactory.book());
-
-		Exception thrownException = assertThrows(IllegalArgumentException.class, () -> {
-			articleController.updateArticle(1L, articleDTO);
-		});
-		assertEquals("Article identifier is required", thrownException.getMessage());
-	}
-
-	@Test
-	public void testUpdateArticle_Book_WhenAuthorIsNull_ThrowsIllegalArgumentException() {
-		ArticleDTO articleDTO = new ArticleDTO();
-		articleDTO.setType(ArticleType.BOOK);
-		articleDTO.setIsbn("isbn");
-
-		when(articleDaoMock.findById(1L)).thenReturn(ModelFactory.book());
-
-		Exception thrownException = assertThrows(IllegalArgumentException.class, () -> {
-			articleController.updateArticle(1L, articleDTO);
-		});
-		assertEquals("Author is required!", thrownException.getMessage());
-	}
-
-	@Test
-	public void testUpdateArticle_Magazine_TypeMismatch_ThrowsIllegalArgumentException() {
-		ArticleDTO articleDTO = new ArticleDTO();
-		articleDTO.setType(ArticleType.MAGAZINE);
-		when(articleDaoMock.findById(1L)).thenReturn(ModelFactory.book());
-
-		Exception thrownException = assertThrows(IllegalArgumentException.class, () -> {
-			articleController.updateArticle(1L, articleDTO);
-		});
-		assertEquals("Cannot change type of Article", thrownException.getMessage());
-	}
-
-	@Test
-	public void testUpdateArticle_Magazine_WhenIssnIsNull_ThrowsIllegalArgumentException() {
-		ArticleDTO articleDTO = new ArticleDTO();
-		articleDTO.setType(ArticleType.MAGAZINE);
-		when(articleDaoMock.findById(1L)).thenReturn(ModelFactory.magazine());
-
-		Exception thrownException = assertThrows(IllegalArgumentException.class, () -> {
-			articleController.updateArticle(1L, articleDTO);
-		});
-		assertEquals("Article identifier is required", thrownException.getMessage());
-	}
-
-	@Test
-	public void testUpdateArticle_Magazine_WhenIssueNumberIsNull_ThrowsIllegalArgumentException() {
-		ArticleDTO articleDTO = new ArticleDTO();
-		articleDTO.setType(ArticleType.MAGAZINE);
-		articleDTO.setIssn("issn");
-
-		when(articleDaoMock.findById(1L)).thenReturn(ModelFactory.magazine());
-
-		Exception thrownException = assertThrows(IllegalArgumentException.class, () -> {
-			articleController.updateArticle(1L, articleDTO);
-		});
-		assertEquals("Issue number is required!", thrownException.getMessage());
-	}
-
-	@Test
-	public void testUpdateArticle_MovieDVD_TypeMismatch_ThrowsIllegalArgumentException() {
-		ArticleDTO articleDTO = new ArticleDTO();
-		articleDTO.setType(ArticleType.MOVIEDVD);
-		when(articleDaoMock.findById(1L)).thenReturn(ModelFactory.magazine());
-
-		Exception thrownException = assertThrows(IllegalArgumentException.class, () -> {
-			articleController.updateArticle(1L, articleDTO);
-		});
-		assertEquals("Cannot change type of Article", thrownException.getMessage());
-	}
-
-	@Test
-	public void testUpdateArticle_MovieDVD_WhenIssnIsNull_ThrowsIllegalArgumentException() {
-		ArticleDTO articleDTO = new ArticleDTO();
-		articleDTO.setType(ArticleType.MOVIEDVD);
-		when(articleDaoMock.findById(1L)).thenReturn(ModelFactory.movieDVD());
-
-		Exception thrownException = assertThrows(IllegalArgumentException.class, () -> {
-			articleController.updateArticle(1L, articleDTO);
-		});
-		assertEquals("Article identifier is required", thrownException.getMessage());
-	}
-
-	@Test
-	public void testUpdateArticle_MovieDVD_WhenIssueNumberIsNull_ThrowsIllegalArgumentException() {
-		ArticleDTO articleDTO = new ArticleDTO();
-		articleDTO.setType(ArticleType.MOVIEDVD);
-		articleDTO.setIsan("isan");
-
-		when(articleDaoMock.findById(1L)).thenReturn(ModelFactory.movieDVD());
-
-		Exception thrownException = assertThrows(IllegalArgumentException.class, () -> {
-			articleController.updateArticle(1L, articleDTO);
-		});
-		assertEquals("Director is required!", thrownException.getMessage());
-	}
-
-	@Test
-	public void testUpdateArticle_WhenArticleToUpdateExistsAndIsbnNotNull_UpdatesBookAttributes() {
-		ArticleDTO articleDTO = new ArticleDTO();
-		articleDTO.setType(ArticleType.BOOK);
-		articleDTO.setIsbn("isbn");
-		articleDTO.setAuthor("author");
-
-		Book mockArticle = mock(Book.class);
-		when(articleDaoMock.findById(1L)).thenReturn(mockArticle);
-
-		articleController.updateArticle(1L, articleDTO);
-
-		verify(mockArticle).setIsbn(articleDTO.getIsbn());
-	}
-
-	@Test
-	public void testUpdateArticle_WhenArticleToUpdateExistsAndIssnNotNull_UpdatesMagazineAttributes() {
-		ArticleDTO articleDTO = new ArticleDTO();
-		articleDTO.setType(ArticleType.MAGAZINE);
-		articleDTO.setIssn("issn");
-		articleDTO.setIssueNumber(Integer.valueOf(1));
-
-		Magazine mockArticle = mock(Magazine.class);
-		when(articleDaoMock.findById(1L)).thenReturn(mockArticle);
-
-		articleController.updateArticle(1L, articleDTO);
-
-		verify(mockArticle).setIssn(articleDTO.getIssn());
-	}
-
-	@Test
-	public void testUpdateArticle_WhenArticleToUpdateExistsAndIsanNotNull_UpdatesMovieDVDAttributes() {
-		ArticleDTO articleDTO = new ArticleDTO();
-		articleDTO.setType(ArticleType.MOVIEDVD);
-		articleDTO.setIsan("isan");
-		articleDTO.setDirector("director");
-
-		MovieDVD mockArticle = mock(MovieDVD.class);
-		when(articleDaoMock.findById(1L)).thenReturn(mockArticle);
-
-		articleController.updateArticle(1L, articleDTO);
-
-		verify(mockArticle).setIsan(articleDTO.getIsan());
+		assertTrue(responseBody.has("articleId"));
 	}
 
 	@ParameterizedTest
-	@MethodSource("testUpdateArticleArgumentsProvider")
-	public void testUpdateArticle_StateTransitions_HandledCorrectly(ArticleState initialState, ArticleState newState,
-			boolean shouldSucceed) {
-		ArticleDTO articleDTO = new ArticleDTO();
-		articleDTO.setState(newState);
+	@MethodSource("provideInvalidArticleData")
+	public void testCreateArticle_InvalidData(ArticleDTO articleDTO, String expectedErrorMessage) {
+		request = RestAssured.given();
+		request.header("Authorization", "Bearer " + adminToken);
+		request.header("Content-type", "application/json");
+		request.body(articleDTO);
 
-		Article mockArticle = mock(Article.class);
-		when(mockArticle.getState()).thenReturn(initialState);
-		when(articleDaoMock.findById(1L)).thenReturn(mockArticle);
+		response = executePost(request, "/");
 
-		try {
-			articleController.updateArticle(1l, articleDTO);
-			if (!shouldSucceed && newState != null) {
-				fail("Expected InvalidStateTransitionException but none was thrown!");
-			}
-		} catch (InvalidStateTransitionException e) {
-			if (shouldSucceed) {
-				fail("Dod not expected InvalidStateTransitionException to be thrown!");
-			}
-			assertTrue(e instanceof InvalidStateTransitionException, "Cannot change state to inserted value!");
-		}
+		response.then().statusCode(400).contentType("text/plain;charset=UTF-8");
 
-		if (shouldSucceed) {
-			if (initialState != newState)
-				verify(mockArticle).setState(newState);
-			verify(articleDaoMock).save(mockArticle);
-		} else {
-			verify(mockArticle, never()).setState(any(ArticleState.class));
-		}
+		body = response.getBody().asString();
+
+		assertTrue(body.contains(expectedErrorMessage));
 	}
 
 	@Test
-    public void testGetArticleInfoExtended_WhenArticleDoesNotExist_ThrowsArticleDoesNotExistException() {
-    	when(articleDaoMock.findById(1L)).thenReturn(null);
-    	Exception thrownException = assertThrows(ArticleDoesNotExistException.class, ()->{
-			articleController.getArticleInfoExtended(1L);
-		});
-		assertEquals("Article does not exist!", thrownException.getMessage());	
-    }
+	public void testCreateArticle_Unauthorized() {
+		ArticleDTO articleDTO = createArticleDTO(null, ArticleType.BOOK, "Shelf 1", "A Great Book",
+				LocalDate.now().minusYears(1), "Publisher", "Fiction", "Description", ArticleState.AVAILABLE, "Author",
+				"1234567890", null, null, null, null, null, null);
 
-	@ParameterizedTest
-	@MethodSource("testGetArticleInfoArgumentsProvider")
-	public void testGetArticleInfoExtended_WhenArticleExists_CallsValidateState(ArticleState state) throws Exception {
-		Article mockArticle = mock(Article.class);
-		User mockUser = mock(User.class);
-		when(mockArticle.getId()).thenReturn(1L);
-		when(mockUser.getId()).thenReturn(1L);
-		when(mockArticle.getState()).thenReturn(state);
-		when(articleDaoMock.findById(1l)).thenReturn(mockArticle);
+		request = RestAssured.given();
+		request.header("Authorization", "Bearer " + citizenToken);
+		request.header("Content-type", "application/json");
+		request.body(articleDTO);
 
-		Booking mockBooking = null;
-		Loan mockLoan = null;
+		response = executePost(request, "/");
 
-		if (state.equals(ArticleState.BOOKED)) {
-			mockBooking = mock(Booking.class);
-			when(mockBooking.getBookedArticle()).thenReturn(mockArticle);
-			when(mockBooking.getBookingUser()).thenReturn(mockUser);
-			when(bookingDaoMock.searchBookings(null, mockArticle, 0, 1)).thenReturn(Arrays.asList(mockBooking));
-		} else if (state.equals(ArticleState.ONLOAN)) {
-			mockLoan = mock(Loan.class);
-			when(mockLoan.getArticleOnLoan()).thenReturn(mockArticle);
-			when(mockLoan.getLoaningUser()).thenReturn(mockUser);
-			when(loanDaoMock.searchLoans(null, mockArticle, 0, 1)).thenReturn(Arrays.asList(mockLoan));
-		} else if (state.equals(ArticleState.ONLOANBOOKED)) {
-			mockBooking = mock(Booking.class);
-			when(mockBooking.getBookedArticle()).thenReturn(mockArticle);
-			when(mockBooking.getBookingUser()).thenReturn(mockUser);
-			when(bookingDaoMock.searchBookings(null, mockArticle, 0, 1)).thenReturn(Arrays.asList(mockBooking));
+		response.then().statusCode(403).contentType("text/html;charset=UTF-8");
 
-			mockLoan = mock(Loan.class);
-			when(mockLoan.getArticleOnLoan()).thenReturn(mockArticle);
-			when(mockLoan.getLoaningUser()).thenReturn(mockUser);
-			when(loanDaoMock.searchLoans(null, mockArticle, 0, 1)).thenReturn(Arrays.asList(mockLoan));
-		}
+		body = response.getBody().asString();
 
-		articleController.getArticleInfoExtended(1L);
-
-		if (state.equals(ArticleState.BOOKED)) {
-			verify(bookingDaoMock).searchBookings(null, mockArticle, 0, 1);
-			verify(mockBooking).validateState();
-		} else if (state.equals(ArticleState.ONLOAN)) {
-			verify(loanDaoMock).searchLoans(null, mockArticle, 0, 1);
-			verify(mockLoan).validateState();
-		} else if (state.equals(ArticleState.ONLOANBOOKED)) {
-			verify(bookingDaoMock).searchBookings(null, mockArticle, 0, 1);
-			verify(mockBooking).validateState();
-
-			verify(loanDaoMock).searchLoans(null, mockArticle, 0, 1);
-			verify(mockLoan).validateState();
-		}
-	}
-
-	@ParameterizedTest
-	@EnumSource(value = ArticleState.class, names = { "BOOKED", "ONLOAN", "ONLOANBOOKED" })
-	public void testGetArticleInfoExtended_WhenArticleExists_ReturnsArticleDTO(ArticleState state) {
-		Article mockArticle = mock(Article.class);
-		User mockUser = mock(User.class);
-		Booking mockBooking = mock(Booking.class);
-		Loan mockLoan = mock(Loan.class);
-		LocalDate today = LocalDate.now();
-
-		when(mockArticle.getId()).thenReturn(1L);
-		when(mockArticle.getTitle()).thenReturn("Cujo");
-		when(mockArticle.getLocation()).thenReturn("upstairs");
-		when(mockArticle.getYearEdition()).thenReturn(today.minusYears(1));
-		when(mockArticle.getPublisher()).thenReturn("publisher");
-		when(mockArticle.getGenre()).thenReturn("horror");
-		when(mockArticle.getDescription()).thenReturn("description");
-		when(mockArticle.getState()).thenReturn(state);
-
-		when(mockBooking.getBookedArticle()).thenReturn(mockArticle);
-		when(mockBooking.getBookingUser()).thenReturn(mockUser);
-		when(bookingDaoMock.searchBookings(null, mockArticle, 0, 1)).thenReturn(Collections.singletonList(mockBooking));
-
-		when(mockLoan.getArticleOnLoan()).thenReturn(mockArticle);
-		when(mockLoan.getLoaningUser()).thenReturn(mockUser);
-		when(loanDaoMock.searchLoans(null, mockArticle, 0, 1)).thenReturn(Collections.singletonList(mockLoan));
-
-		when(articleDaoMock.findById(1L)).thenReturn(mockArticle);
-
-		ArticleDTO resultDTO = articleController.getArticleInfoExtended(1L);
-
-		assertNotNull(resultDTO);
-		assertEquals(Long.valueOf(1L), resultDTO.getId());
-		assertEquals("Cujo", resultDTO.getTitle());
-		assertEquals("upstairs", resultDTO.getLocation());
-		assertEquals(today.minusYears(1), resultDTO.getYearEdition());
-		assertEquals("publisher", resultDTO.getPublisher());
-		assertEquals("horror", resultDTO.getGenre());
-		assertEquals("description", resultDTO.getDescription());
-		assertEquals(state, resultDTO.getState());
-
-		if (state.equals(ArticleState.ONLOAN) || state.equals(ArticleState.ONLOANBOOKED)) {
-			assertEquals(mockLoan.getArticleOnLoan().getId(), resultDTO.getLoanDTO().getArticleId());
-			assertEquals(mockLoan.getLoaningUser().getId(), resultDTO.getLoanDTO().getLoaningUserId());
-		}
-
-		if (state.equals(ArticleState.BOOKED) || state.equals(ArticleState.ONLOANBOOKED)) {
-			assertEquals(mockBooking.getBookedArticle().getId(), resultDTO.getBookingDTO().getBookedArticleId());
-			assertEquals(mockBooking.getBookingUser().getId(), resultDTO.getBookingDTO().getBookingUserId());
-		}
+		assertEquals("Access forbidden: role not allowed", body);
 	}
 
 	@Test
-    void testSearchArticles_WhenNoResults_ThrowsSearchHasGivenNoResultsException() {
-        when(articleDaoMock.findArticles(null, null, null, null, null, 0, null, 0, 0)).thenReturn(Collections.emptyList());
+	public void testUpdateArticle_Success() throws IllegalAccessException, SQLException {
+		QueryUtils.queryCreateBook(connection, 2L, "upstairs", "cujo", LocalDate.now(), "publisher",
+				"horror", "a nice book", ArticleState.BOOKED, "King", "isbn");
 
-    	Exception thrownException = assertThrows(SearchHasGivenNoResultsException.class, () -> {
-    		articleController.searchArticles(null, null, null, null, null, null, null, null, 0, null, 0, 0);
-		});
-		assertEquals("The search has given 0 results!", thrownException.getMessage());	
-    }
+		ArticleDTO articleDTO = createArticleDTO(null, ArticleType.BOOK, "Shelf 1", "Updated Book", LocalDate.now(),
+				"Updated Publisher", "Updated Genre", "Updated Description", ArticleState.BOOKED, "Updated Author",
+				"1234567890", null, null, null, null, null, null);
 
-	@SuppressWarnings("unchecked")
+		request = RestAssured.given();
+		request.header("Authorization", "Bearer " + adminToken);
+		request.header("Content-type", "application/json");
+		request.pathParam("articleId", 2L);
+		request.body(articleDTO);
+
+		response = executePut(request, "/{articleId}");
+
+		response.then().statusCode(200).contentType("application/json");
+
+		body = response.getBody().asString();
+		responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+		assertEquals("Article updated successfully.", responseBody.get("message").getAsString());
+	}
+
+	@Test
+	public void testUpdateArticle_NotFound() {
+		ArticleDTO articleDTO = createArticleDTO(null, ArticleType.BOOK, "Shelf 1", "Updated Book",
+				LocalDate.now(), "Updated Publisher", "Updated Genre", "Updated Description",
+				ArticleState.AVAILABLE, "Updated Author", "1234567890", null, null, null, null, null, null);
+
+		request = RestAssured.given();
+		request.header("Authorization", "Bearer " + adminToken);
+		request.header("Content-type", "application/json");
+		request.pathParam("articleId", 9999L);
+		request.body(articleDTO);
+
+		response = executePut(request, "/{articleId}");
+
+		response.then().statusCode(404).contentType("application/json");
+
+		body = response.getBody().asString();
+		responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+		assertEquals("Article does not exist!", responseBody.get("error").getAsString());
+	}
+
 	@ParameterizedTest
-	@MethodSource("testSearchArticlesArgumentsProvider")
-	void testSearchArticles_WhenSpecificIdentifier_PerformsSpecificSearch_OtherwisePerformsGeneralSearch(String isbn,
-			String issn, String isan, String title, String genre, String publisher, LocalDate yearEdition,
-			String author, int issueNumber, String director, Object expectedResult, Class<?> daoClass) {
-		if (daoClass.equals(BookDao.class)) {
-			when(bookDaoMock.findBooksByIsbn(isbn)).thenReturn((List<Book>) expectedResult);
-		} else if (daoClass.equals(MagazineDao.class)) {
-			when(magazineDaoMock.findMagazinesByIssn(issn)).thenReturn((List<Magazine>) expectedResult);
-		} else if (daoClass.equals(MovieDVDDao.class)) {
-			when(movieDVDDaoMock.findMoviesByIsan(isan)).thenReturn((List<MovieDVD>) expectedResult);
-		} else if (daoClass.equals(ArticleDao.class)) {
-			when(articleDaoMock.findArticles(title, genre, publisher, yearEdition, author, issueNumber, director, 0, 0))
-					.thenReturn((List<Article>) expectedResult);
+	@MethodSource("provideInvalidArticleData")
+	public void testUpdateArticle_InvalidData(ArticleDTO articleDTO, String expectedErrorMessage) {
+		request = RestAssured.given();
+		request.header("Authorization", "Bearer " + adminToken);
+		request.header("Content-type", "application/json");
+		request.pathParam("articleId", 1L);
+		request.body(articleDTO);
+
+		response = executePut(request, "/{articleId}");
+
+		response.then().statusCode(400).contentType("text/plain;charset=UTF-8");
+
+		body = response.getBody().asString();
+
+		assertTrue(body.contains(expectedErrorMessage));
+	}
+
+	@Test
+	public void testUpdateArticle_Unauthorized() {
+		ArticleDTO articleDTO = createArticleDTO(null, ArticleType.BOOK, "Shelf 1", "Updated Book",
+				LocalDate.now(), "Updated Publisher", "Updated Genre", "Updated Description",
+				ArticleState.AVAILABLE, "Updated Author", "1234567890", null, null, null, null, null, null);
+
+		request = RestAssured.given();
+		request.header("Authorization", "Bearer " + citizenToken);
+		request.header("Content-type", "application/json");
+		request.pathParam("articleId", 1L);
+		request.body(articleDTO);
+
+		response = executePut(request, "/{articleId}");
+
+		response.then().statusCode(403).contentType("text/html;charset=UTF-8");
+
+		body = response.getBody().asString();
+
+		assertEquals("Access forbidden: role not allowed", body);
+	}
+
+	@Test
+	public void testGetArticleInfo_Success() throws IllegalAccessException, SQLException {
+		Book book = QueryUtils.queryCreateBook(connection, 1L, "Shelf 1", "A Great Book",
+				LocalDate.now().minusYears(1), "Publisher", "Fiction", "Description", ArticleState.AVAILABLE, "Author",
+				"1234567890");
+
+		request = RestAssured.given();
+		request.header("Authorization", "Bearer " + adminToken);
+		request.header("Content-type", "application/json");
+		request.pathParam("articleId", 1L);
+
+		response = executeGet(request, "/{articleId}");
+
+		response.then().statusCode(200).contentType("application/json");
+
+		body = response.getBody().asString();
+		responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+		assertEquals(book.getId(), responseBody.get("id").getAsLong());
+		assertEquals(book.getLocation(), responseBody.get("location").getAsString());
+		assertEquals(book.getTitle(), responseBody.get("title").getAsString());
+		assertEquals(book.getPublisher(), responseBody.get("publisher").getAsString());
+		assertEquals(book.getGenre(), responseBody.get("genre").getAsString());
+		assertEquals(book.getDescription(), responseBody.get("description").getAsString());
+		assertEquals(book.getState().toString(), responseBody.get("state").getAsString());
+		assertEquals("BOOK", responseBody.get("type").getAsString());
+		assertEquals(book.getAuthor(), responseBody.get("author").getAsString());
+		assertEquals(book.getIsbn(), responseBody.get("isbn").getAsString());
+
+		JsonArray yearEditionArray = responseBody.get("yearEdition").getAsJsonArray();
+		LocalDate yearEditionResponse = LocalDate.of(yearEditionArray.get(0).getAsInt(),
+				yearEditionArray.get(1).getAsInt(), yearEditionArray.get(2).getAsInt());
+
+		assertEquals(book.getYearEdition(), yearEditionResponse);
+	}
+
+	@Test
+	public void testGetArticleInfo_NotFound() {
+		request = RestAssured.given();
+		request.header("Authorization", "Bearer " + adminToken);
+		request.header("Content-type", "application/json");
+		request.pathParam("articleId", 9999L);
+
+		response = executeGet(request, "/{articleId}");
+
+		response.then().statusCode(404).contentType("application/json");
+
+		body = response.getBody().asString();
+		responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+		assertEquals("Article does not exist!", responseBody.get("error").getAsString());
+	}
+
+	@Test
+	public void testSearchArticles_Success() throws IllegalAccessException, SQLException {
+
+		Book book1 = QueryUtils.queryCreateBook(connection, 1L, "Shelf 1", "Book 1", LocalDate.now().minusYears(1),
+				"Publisher 1", "Fiction", "Description 1", ArticleState.AVAILABLE, "Author 1", "1234567890");
+		QueryUtils.queryCreateBook(connection, 2L, "Shelf 2", "Book 2", LocalDate.now().minusYears(2),
+				"Publisher 2", "Science", "Description 2", ArticleState.BOOKED, "Author 2", "0987654321");
+
+		request = RestAssured.given();
+		request.header("Authorization", "Bearer " + adminToken);
+		request.header("Content-type", "application/json");
+		request.queryParam("title", "Book 1");
+
+		response = executeGet(request, "/");
+
+		response.then().statusCode(200).contentType("application/json");
+
+		body = response.getBody().asString();
+		responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+		assertEquals(1, responseBody.get("totalResults").getAsInt());
+		assertEquals(1, responseBody.get("totalPages").getAsInt());
+		assertEquals(1, responseBody.get("pageNumber").getAsInt());
+		assertEquals(10, responseBody.get("resultsPerPage").getAsInt());
+
+		JsonObject article = responseBody.get("items").getAsJsonArray().get(0).getAsJsonObject();
+		assertEquals(book1.getId(), article.get("id").getAsLong());
+		assertEquals(book1.getLocation(), article.get("location").getAsString());
+		assertEquals(book1.getTitle(), article.get("title").getAsString());
+		assertEquals(book1.getPublisher(), article.get("publisher").getAsString());
+		assertEquals(book1.getGenre(), article.get("genre").getAsString());
+		assertEquals(book1.getDescription(), article.get("description").getAsString());
+		assertEquals(book1.getState().toString(), article.get("state").getAsString());
+		assertEquals(book1.getIsbn(), article.get("isbn").getAsString());
+
+		JsonArray yearEditionArray = article.get("yearEdition").getAsJsonArray();
+		LocalDate yearEditionResponse = LocalDate.of(yearEditionArray.get(0).getAsInt(),
+				yearEditionArray.get(1).getAsInt(), yearEditionArray.get(2).getAsInt());
+
+		assertEquals(book1.getYearEdition(), yearEditionResponse);
+
+		assertEquals(1, responseBody.get("pageNumber").getAsInt());
+		assertEquals(10, responseBody.get("resultsPerPage").getAsInt());
+		assertEquals(1, responseBody.get("totalResults").getAsInt());
+		assertEquals(1, responseBody.get("totalPages").getAsInt());
+
+	}
+
+	@Test
+	public void testSearchArticles_InvalidDateFormat() {
+		request = RestAssured.given();
+		request.header("Authorization", "Bearer " + adminToken);
+		request.header("Content-type", "application/json");
+		request.queryParam("yearEdition", "invalid-date");
+
+		response = executeGet(request, "/");
+
+		response.then().statusCode(400).contentType("application/json");
+
+		body = response.getBody().asString();
+		responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+		assertEquals("Invalid date format for 'yearEdition', expected format YYYY-MM-DD.",
+				responseBody.get("error").getAsString());
+	}
+
+	@Test
+	public void testSearchArticles_InvalidPaginationParameters() {
+		request = RestAssured.given();
+		request.header("Authorization", "Bearer " + adminToken);
+		request.header("Content-type", "application/json");
+		request.queryParam("pageNumber", 0);
+		request.queryParam("resultsPerPage", -1);
+
+		response = executeGet(request, "/");
+
+		response.then().statusCode(400).contentType("application/json");
+
+		body = response.getBody().asString();
+		responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+		assertEquals("Pagination parameters incorrect!", responseBody.get("error").getAsString());
+	}
+
+	@Test
+	public void testSearchArticles_NoResults() {
+		request = RestAssured.given();
+		request.header("Authorization", "Bearer " + adminToken);
+		request.header("Content-type", "application/json");
+		request.queryParam("title", "Nonexistent Book");
+
+		response = executeGet(request, "/");
+
+		response.then().statusCode(404).contentType("application/json");
+
+		body = response.getBody().asString();
+		responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+		assertEquals("The search has given 0 results!", responseBody.get("error").getAsString());
+	}
+
+	@Test
+	public void testSearchArticles_MultipleResults() throws IllegalAccessException, SQLException {
+		QueryUtils.queryCreateBook(connection, 1L, "Shelf 1", "Book 1", LocalDate.now().minusYears(2), "Publisher 1",
+				"Fiction", "Description 1", ArticleState.AVAILABLE, "Author 1", "1234567890");
+		QueryUtils.queryCreateBook(connection, 2L, "Shelf 2", "Book 2", LocalDate.now().minusYears(1), "Publisher 2",
+				"Science", "Description 2", ArticleState.AVAILABLE, "Author 2", "0987654321");
+		QueryUtils.queryCreateBook(connection, 3L, "Shelf 3", "Book 3", LocalDate.now(), "Publisher 3",
+				"History", "Description 3", ArticleState.AVAILABLE, "Author 1", "1234509876");
+
+		request = RestAssured.given();
+		request.header("Authorization", "Bearer " + adminToken);
+		request.header("Content-type", "application/json");
+		request.queryParam("author", "Author 1");
+
+		response = executeGet(request, "/");
+
+		response.then().statusCode(200).contentType("application/json");
+
+		body = response.getBody().asString();
+		responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+		assertTrue(responseBody.has("items"));
+		JsonArray itemsArray = responseBody.get("items").getAsJsonArray();
+		assertEquals(2, itemsArray.size());
+
+		for (int i = 0; i < itemsArray.size(); i++) {
+			JsonObject articleObject = itemsArray.get(i).getAsJsonObject();
+			assertEquals(articleObject.get("author").getAsString(), "Author 1");
 		}
 
-		List<? extends Article> result = articleController.searchArticles(isbn, issn, isan, title, genre, publisher,
-				yearEdition, author, issueNumber, director, 0, 0);
+		assertEquals(1, responseBody.get("pageNumber").getAsInt());
+		assertEquals(10, responseBody.get("resultsPerPage").getAsInt());
+		assertTrue(responseBody.get("totalResults").getAsInt() == 2);
+		assertTrue(responseBody.get("totalPages").getAsInt() == 1);
+	}
 
-		assertFalse(result.isEmpty());
-		assertEquals(expectedResult, result);
+	@Test
+	public void testSearchArticles_Pagination() throws IllegalAccessException, SQLException {
+		QueryUtils.queryCreateBook(connection, 1L, "Shelf 1", "Book 1", LocalDate.now().minusYears(2), "Publisher 1",
+				"Fiction", "Description 1", ArticleState.AVAILABLE, "Author 1", "1234567890");
+		QueryUtils.queryCreateBook(connection, 2L, "Shelf 2", "Book 2", LocalDate.now().minusYears(1), "Publisher 2",
+				"Science", "Description 2", ArticleState.BOOKED, "Author 2", "0987654321");
+		QueryUtils.queryCreateBook(connection, 3L, "Shelf 3", "Book 3", LocalDate.now(), "Publisher 3",
+				"History", "Description 3", ArticleState.ONLOAN, "Author 1", "1234509876");
+
+		request = RestAssured.given();
+		request.header("Authorization", "Bearer " + adminToken);
+		request.header("Content-type", "application/json");
+		request.queryParam("resultsPerPage", 2);
+		request.queryParam("pageNumber", 2);
+
+		response = executeGet(request, "/");
+
+		response.then().statusCode(200).contentType("application/json");
+
+		body = response.getBody().asString();
+		responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+		assertTrue(responseBody.has("items"));
+
+		JsonArray itemsArray = responseBody.get("items").getAsJsonArray();
+		assertEquals(1, itemsArray.size());
+
+		JsonObject articleObject = itemsArray.get(0).getAsJsonObject();
+		assertEquals("Book 1", articleObject.get("title").getAsString());
+
+		assertEquals(2, responseBody.get("pageNumber").getAsInt());
+		assertEquals(2, responseBody.get("resultsPerPage").getAsInt());
+		assertEquals(3, responseBody.get("totalResults").getAsInt());
+		assertEquals(2, responseBody.get("totalPages").getAsInt());
+	}
+
+	@Test
+	public void testDeleteArticle_Success() throws IllegalAccessException, SQLException {
+		QueryUtils.queryCreateBook(connection, 1L, "Shelf 1", "Book 1", LocalDate.now().minusYears(2), "Publisher 1",
+				"Fiction", "Description 1", ArticleState.AVAILABLE, "Author 1", "1234567890");
+		QueryUtils.queryCreateBook(connection, 2L, "Shelf 2", "Book 2", LocalDate.now().minusYears(1), "Publisher 2",
+				"Science", "Description 2", ArticleState.ONLOAN, "Author 2", "0987654321");
+		QueryUtils.queryCreateBook(connection, 3L, "Shelf 3", "Book 3", LocalDate.now(), "Publisher 3",
+				"History", "Description 3", ArticleState.BOOKED, "Author 3", "1234509876");
+
+		request = RestAssured.given();
+		request.header("Authorization", "Bearer " + adminToken);
+		request.header("Content-type", "application/json");
+		request.pathParam("articleId", 1L);
+
+		response = executeDelete(request, "/{articleId}");
+
+		response.then().statusCode(200).contentType("application/json");
+
+		body = response.getBody().asString();
+		responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+		assertEquals("Article deleted successfully.", responseBody.get("message").getAsString());
 	}
 	
 	@Test
-	void testSearchArticles_WhenArticleIsBooked_PerformsValidateState() {
-		Book mockBook = mock(Book.class);
-		Booking mockBooking = mock(Booking.class);
+	public void testDeleteArticle_Unauthorized() {
+		request = RestAssured.given();
+		request.header("Authorization", "Bearer " + citizenToken);
+		request.header("Content-type", "application/json");
+		request.pathParam("articleId", 1L);
+
+		response = executeDelete(request, "/{articleId}");
+
+		response.then().statusCode(403).contentType("text/html;charset=UTF-8");
+
+		body = response.getBody().asString();
+
+		assertEquals("Access forbidden: role not allowed", body);
+	}
+
+	@Test
+	public void testDeleteArticle_NotFound() {
+		request = RestAssured.given();
+		request.header("Authorization", "Bearer " + adminToken);
+		request.header("Content-type", "application/json");
+		request.pathParam("articleId", 9999L);
+
+		response = executeDelete(request, "/{articleId}");
+
+		response.then().statusCode(404).contentType("application/json");
+
+		body = response.getBody().asString();
+		responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+		assertEquals("Cannot remove Article! Article not in catalogue!", responseBody.get("error").getAsString());
+	}
+
+	@Test
+	public void testDeleteArticle_InvalidOperation_OnLoan() throws IllegalAccessException, SQLException {
+		QueryUtils.queryCreateBook(connection, 1L, "Shelf 2", "Book 2", LocalDate.now(), "Publisher 2",
+				"Science", "Description 2", ArticleState.ONLOAN, "Author 2", "0987654321");
+
+		request = RestAssured.given();
+		request.header("Authorization", "Bearer " + adminToken);
+		request.header("Content-type", "application/json");
+		request.pathParam("articleId", 1L);
+
+		response = executeDelete(request, "/{articleId}");
+
+		response.then().statusCode(400).contentType("application/json");
+
+		body = response.getBody().asString();
+		responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+		assertEquals("Cannot remove Article from catalogue! Article currently on loan!",
+				responseBody.get("error").getAsString());
+	}
+
+	@Test
+	public void testDeleteArticle_BookedArticle() throws IllegalAccessException, SQLException {
+		User user = QueryUtils.queryCreateUser(connection, 3L, "user@Email.com", "user password", "name", "surname", "address",
+				"123432", UserRole.CITIZEN);
+
+		Book book = QueryUtils.queryCreateBook(connection, 1L, "Shelf 3", "Book 3", LocalDate.now(), "Publisher 3",
+				"History", "Description 3", ArticleState.BOOKED, "Author 3", "1234509876");
+
+		QueryUtils.queryCreateBooking(connection, 7L, LocalDate.now(), LocalDate.now().plusDays(3), BookingState.ACTIVE,
+				book, user);
 		
-		when(mockBook.getState()).thenReturn(ArticleState.BOOKED);
-		when(articleDaoMock.findArticles(null, null, null, null, null, null, null, 0, 0)).thenReturn(List.of(mockBook));
-		when(bookingDaoMock.searchBookings(null, mockBook, 0, 1)).thenReturn(List.of(mockBooking));
-		
-		articleController.searchArticles(null, null, null, null, null, null, null, null, null, null, 0, 0);
+		request = RestAssured.given();
+		request.header("Authorization", "Bearer " + adminToken);
+		request.header("Content-type", "application/json");
+		request.pathParam("articleId", 1L);
 
-		verify(mockBooking).validateState();
+		response = executeDelete(request, "/{articleId}");
+
+		response.then().statusCode(200).contentType("application/json");
+
+		body = response.getBody().asString();
+		responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+		assertEquals("Article deleted successfully.", responseBody.get("message").getAsString());
 	}
 
-	@Test
-	void testSearchArticles_WhenArticleIsOnloan_PerformsValidateState() {
-		Book mockBook = mock(Book.class);
-		Loan mockLoan = mock(Loan.class);
-		
-		when(mockBook.getState()).thenReturn(ArticleState.ONLOAN);
-		when(articleDaoMock.findArticles(null, null, null, null, null, null, null, 0, 0)).thenReturn(List.of(mockBook));
-		when(loanDaoMock.searchLoans(null, mockBook, 0, 1)).thenReturn(List.of(mockLoan));
-		
-		articleController.searchArticles(null, null, null, null, null, null, null, null, null, null, 0, 0);
-
-		verify(mockLoan).validateState();
-	}
-
-	@Test
-	void testSearchArticles_WhenArticleIsOnloanBooked_PerformsValidateState() {
-		Book mockBook = mock(Book.class);
-		Booking mockBooking = mock(Booking.class);
-		Loan mockLoan = mock(Loan.class);
-		
-		when(mockBook.getState()).thenReturn(ArticleState.ONLOANBOOKED);
-		when(articleDaoMock.findArticles(null, null, null, null, null, null, null, 0, 0)).thenReturn(List.of(mockBook));
-		when(loanDaoMock.searchLoans(null, mockBook, 0, 1)).thenReturn(List.of(mockLoan));
-		when(bookingDaoMock.searchBookings(null, mockBook, 0, 1)).thenReturn(List.of(mockBooking));
-
-		articleController.searchArticles(null, null, null, null, null, null, null, null, null, null, 0, 0);
-
-		verify(mockLoan).validateState();
-		verify(mockBooking).validateState();
-	}
-
-	@Test
-	public void testCountArticles_WhenIsbnNotNull_PerformsCountBooksByIsbn() {
-		articleController.countArticles("1234567890", null, null, null, null, null, null, null, null, null);
-
-		verify(bookDaoMock).countBooksByIsbn("1234567890");
-	}
-
-	@Test
-	public void testCountArticles_WhenIssnNotNull_PerformsCountMagazinesByIssn() {
-		articleController.countArticles(null, "9876543210", null, null, null, null, null, null, null, null);
-
-		verify(magazineDaoMock).countMagazinesByIssn("9876543210");
-	}
-
-	@Test
-	public void testCountArticles_WhenIsanNotNull_PerformsCountMoviesByIsan() {
-		articleController.countArticles(null, null, "1357924680", null, null, null, null, null, null, null);
-
-		verify(movieDVDDaoMock).countMoviesByIsan("1357924680");
-	}
-
-	@Test
-	public void testCountArticlesByOtherParameters() {
-		articleController.countArticles(null, null, null, "Some Title", "Some Genre", "Some Publisher", LocalDate.now(),
-				"Some Author", 1, "Some Director");
-
-		verify(articleDaoMock).countArticles("Some Title", "Some Genre", "Some Publisher", LocalDate.now(),
-				"Some Author", 1, "Some Director");
-	}
-
-	@Test
-    public void testRemoveArticle_WhenArticleDoesNotExist_ThrowsArticleDoesNotExistException() {
-    	when(articleDaoMock.findById(1L)).thenReturn(null);
-    	
-    	Exception thrownException = assertThrows(ArticleDoesNotExistException.class, () -> {
-    		articleController.removeArticle(1L);
-		});
-		assertEquals("Cannot remove Article! Article not in catalogue!", thrownException.getMessage());	
-    }
-
-	@ParameterizedTest
-	@MethodSource("testRemoveArticleArgumentsProvider")
-	void testRemoveArticle_BehavesCorrectlyBasedOnArticleState(ArticleState articleState, BookingState bookingState,
-			Class<? extends RuntimeException> expectedException, String exceptionMessage) {
-		Article article = (articleState != null) ? mock(Article.class) : null;
-		Booking booking = (bookingState != null) ? mock(Booking.class) : null;
-
-		when(articleDaoMock.findById(1L)).thenReturn(article);
-		if (article != null) {
-			when(article.getState()).thenReturn(articleState);
-		}
-		if (articleState == ArticleState.BOOKED) {
-			when(bookingDaoMock.searchBookings(null, article, 0, 1)).thenReturn(List.of(booking));
-			when(booking.getState()).thenReturn(bookingState);
-		}
-
-		if (expectedException == null) {
-			articleController.removeArticle(1L);
-			if (bookingState == BookingState.ACTIVE) {
-				verify(booking).setState(BookingState.CANCELLED);
-				verify(articleDaoMock).delete(article);
-			}
-		} else {
-			Exception thrownException = assertThrows(expectedException, () -> {
-				articleController.removeArticle(1L);
-			});
-			assertEquals(exceptionMessage, thrownException.getMessage());
-
-		}
-	}
-
-	private static Stream<Arguments> testUpdateArticleArgumentsProvider() {
-		return Stream.of(Arguments.of("UNAVAILABLE", "AVAILABLE", true), Arguments.of("AVAILABLE", "UNAVAILABLE", true),
-
-				Arguments.of("UNAVAILABLE", "UNAVAILABLE", true), Arguments.of("UNAVAILABLE", "ONLOAN", false),
-				Arguments.of("UNAVAILABLE", "ONLOANBOOKED", false), Arguments.of("UNAVAILABLE", "BOOKED", false),
-				Arguments.of("UNAVAILABLE", null, false),
-
-				Arguments.of("AVAILABLE", "AVAILABLE", true), Arguments.of("AVAILABLE", "ONLOAN", false),
-				Arguments.of("AVAILABLE", "ONLOANBOOKED", false), Arguments.of("AVAILABLE", "BOOKED", false),
-				Arguments.of("AVAILABLE", null, false),
-
-				Arguments.of("ONLOAN", "ONLOAN", true), Arguments.of("ONLOAN", "UNAVAILABLE", false),
-				Arguments.of("ONLOAN", "AVAILABLE", false), Arguments.of("ONLOAN", "BOOKED", false),
-				Arguments.of("ONLOAN", "ONLOANBOOKED", false), Arguments.of("ONLOAN", null, false),
-
-				Arguments.of("ONLOANBOOKED", "ONLOANBOOKED", true), Arguments.of("ONLOANBOOKED", "UNAVAILABLE", false),
-				Arguments.of("ONLOANBOOKED", "AVAILABLE", false), Arguments.of("ONLOANBOOKED", "ONLOAN", false),
-				Arguments.of("ONLOANBOOKED", "BOOKED", false), Arguments.of("ONLOANBOOKED", null, false),
-
-				Arguments.of("BOOKED", "BOOKED", true), Arguments.of("BOOKED", "ONLOAN", false),
-				Arguments.of("BOOKED", "ONLOANBOOKED", false), Arguments.of("BOOKED", "AVAILABLE", false),
-				Arguments.of("BOOKED", "UNAVAILABLE", false), Arguments.of("BOOKED", null, false));
-	}
-
-	private static Stream<Arguments> testGetArticleInfoArgumentsProvider() {
-		return Stream.of(Arguments.of(ArticleState.BOOKED), Arguments.of(ArticleState.ONLOAN),
-				Arguments.of(ArticleState.ONLOANBOOKED), Arguments.of(ArticleState.AVAILABLE),
-				Arguments.of(ArticleState.UNAVAILABLE));
-	}
-
-	private static Stream<Arguments> testSearchArticlesArgumentsProvider() {
-		Article mockArticle = mock(Article.class);
-		Book mockBook = mock(Book.class);
-		Magazine mockMagazine = mock(Magazine.class);
-		MovieDVD mockMovieDVD = mock(MovieDVD.class);
-
+	private static Stream<Arguments> provideInvalidArticleData() {
 		return Stream.of(
-				Arguments.of("isbn", null, null, null, null, null, null, null, 0, null, Arrays.asList(mockBook),
-						BookDao.class),
-				Arguments.of(null, "issn", null, null, null, null, null, null, 0, null, Arrays.asList(mockMagazine),
-						MagazineDao.class),
-				Arguments.of(null, null, "isan", null, null, null, null, null, 0, null, Arrays.asList(mockMovieDVD),
-						MovieDVDDao.class),
-				Arguments.of(null, null, null, "Title", null, null, null, null, 0, null, Arrays.asList(mockArticle),
-						ArticleDao.class));
-	}
-
-	private static Stream<Arguments> testRemoveArticleArgumentsProvider() {
-		return Stream.of(
-				Arguments.of(null, null, ArticleDoesNotExistException.class,
-						"Cannot remove Article! Article not in catalogue!"), // Article does not exist
-				Arguments.of(ArticleState.ONLOAN, null, InvalidOperationException.class,
-						"Cannot remove Article from catalogue! Article currently on loan!"), // Article on loan
-				Arguments.of(ArticleState.ONLOANBOOKED, null, InvalidOperationException.class,
-						"Cannot remove Article from catalogue! Article currently on loan!"), // Article on loan booked
-				Arguments.of(ArticleState.BOOKED, BookingState.ACTIVE, null, null), // Article booked, active booking
-				Arguments.of(ArticleState.BOOKED, BookingState.CANCELLED, InvalidOperationException.class,
-						"Cannot remove Article from catalogue! Inconsistent state!"), // Article booked, inactive
-																						// booking
-				Arguments.of(ArticleState.AVAILABLE, null, null, null), // Article available (default case)
-				Arguments.of(ArticleState.UNAVAILABLE, null, null, null) // Article unavailable (default case)
+				Arguments.of(createArticleDTO(null, null, "Shelf 1", "A Great Book", LocalDate.now().minusYears(1),
+						"Publisher", "Fiction", "Description", ArticleState.AVAILABLE, "Author", "1234567890", null,
+						null, null, null, null, null), "Type is required"), // null ArticleType
+				Arguments.of(createArticleDTO(null, ArticleType.BOOK, null, "A Great Book",
+						LocalDate.now().minusYears(1), "Publisher", "Fiction", "Description", ArticleState.AVAILABLE,
+						"Author", "1234567890", null, null, null, null, null, null), "Location is required"), // null
+																												// location
+				Arguments.of(createArticleDTO(null, ArticleType.BOOK, "Shelf 1", null, LocalDate.now().minusYears(1),
+						"Publisher", "Fiction", "Description", ArticleState.AVAILABLE, "Author", "1234567890", null,
+						null, null, null, null, null), "Title is required"), // null title
+				Arguments.of(createArticleDTO(null, ArticleType.BOOK, "Shelf 1", "A Great Book", null, "Publisher",
+						"Fiction", "Description", ArticleState.AVAILABLE, "Author", "1234567890", null, null, null,
+						null, null, null), "Year of edition is required"), // null yearEdition
+				Arguments.of(
+						createArticleDTO(null, ArticleType.BOOK, "Shelf 1", "A Great Book",
+								LocalDate.now().plusYears(1), "Publisher", "Fiction", "Description",
+								ArticleState.AVAILABLE, "Author", "1234567890", null, null, null, null, null, null),
+						"Year of edition cannot be in the future"), // yarEdition in the future
+				Arguments.of(createArticleDTO(null, ArticleType.BOOK, "Shelf 1", "A Great Book",
+						LocalDate.now().minusYears(1), null, "Fiction", "Description", ArticleState.AVAILABLE, "Author",
+						"1234567890", null, null, null, null, null, null), "Publisher is required"), // null publisher
+				Arguments.of(createArticleDTO(null, ArticleType.BOOK, "Shelf 1", "A Great Book",
+						LocalDate.now().minusYears(1), "Publisher", null, "Description", ArticleState.AVAILABLE,
+						"Author", "1234567890", null, null, null, null, null, null), "Genre is required") // null genre
 		);
 	}
+
+	private static ArticleDTO createArticleDTO(Long id, ArticleType type, String location, String title,
+			LocalDate yearEdition, String publisher, String genre, String description, ArticleState state,
+			String author, String isbn, Integer issueNumber, String issn, String director, String isan,
+			BookingDTO bookingDTO, LoanDTO loanDTO) {
+		ArticleDTO articleDTO = new ArticleDTO();
+		articleDTO.setId(id);
+		articleDTO.setType(type);
+		articleDTO.setLocation(location);
+		articleDTO.setTitle(title);
+		articleDTO.setYearEdition(yearEdition);
+		articleDTO.setPublisher(publisher);
+		articleDTO.setGenre(genre);
+		articleDTO.setDescription(description);
+		articleDTO.setState(state);
+		articleDTO.setAuthor(author);
+		articleDTO.setIsbn(isbn);
+		articleDTO.setIssueNumber(issueNumber);
+		articleDTO.setIssn(issn);
+		articleDTO.setDirector(director);
+		articleDTO.setIsan(isan);
+		articleDTO.setLoanDTO(loanDTO);
+		articleDTO.setBookingDTO(bookingDTO);
+		return articleDTO;
+	}
+
 }

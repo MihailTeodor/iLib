@@ -1,469 +1,556 @@
 package it.gurzu.SWAM.iLib.controllerTest;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.sql.SQLException;
 import java.time.LocalDate;
-import java.util.Collections;
-import java.util.List;
 
-import org.apache.commons.lang3.reflect.FieldUtils;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
-import org.mockito.ArgumentCaptor;
 
-import it.gurzu.swam.iLib.controllers.LoanController;
-import it.gurzu.swam.iLib.dao.ArticleDao;
-import it.gurzu.swam.iLib.dao.BookingDao;
-import it.gurzu.swam.iLib.dao.LoanDao;
-import it.gurzu.swam.iLib.dao.UserDao;
-import it.gurzu.swam.iLib.dto.LoanDTO;
-import it.gurzu.swam.iLib.exceptions.ArticleDoesNotExistException;
-import it.gurzu.swam.iLib.exceptions.InvalidOperationException;
-import it.gurzu.swam.iLib.exceptions.LoanDoesNotExistException;
-import it.gurzu.swam.iLib.exceptions.UserDoesNotExistException;
-import it.gurzu.swam.iLib.model.Article;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+
+import io.restassured.RestAssured;
+import io.restassured.response.Response;
+import io.restassured.specification.RequestSpecification;
 import it.gurzu.swam.iLib.model.ArticleState;
-import it.gurzu.swam.iLib.model.Booking;
+import it.gurzu.swam.iLib.model.Book;
 import it.gurzu.swam.iLib.model.Loan;
 import it.gurzu.swam.iLib.model.LoanState;
 import it.gurzu.swam.iLib.model.User;
+import it.gurzu.swam.iLib.model.UserRole;
 
-public class LoanControllerTest {
-	private LoanController loanController;
-	private UserDao userDaoMock;
-	private ArticleDao articleDaoMock;
-	private LoanDao loanDaoMock;
-	private BookingDao bookingDaoMock;
-	
-	private final LocalDate today = LocalDate.now();
-	
-	
-	@BeforeEach
-	public void setup() throws IllegalAccessException {
-		loanController = new LoanController();
-		userDaoMock = mock(UserDao.class);
-		articleDaoMock = mock(ArticleDao.class);
-		loanDaoMock = mock(LoanDao.class);
-		bookingDaoMock = mock(BookingDao.class);
-		
-		FieldUtils.writeField(loanController, "userDao", userDaoMock, true);
-		FieldUtils.writeField(loanController, "articleDao", articleDaoMock, true);
-		FieldUtils.writeField(loanController, "loanDao", loanDaoMock, true);
-		FieldUtils.writeField(loanController, "bookingDao", bookingDaoMock, true);
+public class LoanControllerTest extends ControllerTest {
+	private User citizenUser;
+	private String adminToken;
+	private String citizenToken;
+
+	private RequestSpecification request;
+	private Response response;
+	private String body;
+	private JsonObject responseBody;
+
+	@Override
+	protected void beforeEachInit() throws SQLException, IllegalAccessException {
+		setBaseURL("/iLib/v1/loansEndpoint");
+
+		QueryUtils.queryTruncateAll(connection);
+
+		QueryUtils.queryCreateUser(connection, 1L, "admin@example.com", "admin password", "adminName",
+				"adminSurname", "adminAddress", "adminTelephoneNumber", UserRole.ADMINISTRATOR);
+		adminToken = AuthHelper.getAuthToken("admin@example.com", "admin password");
+
+		citizenUser = QueryUtils.queryCreateUser(connection, 2L, "user@Email.com", "user password", "name", "surname",
+				"address", "123432", UserRole.CITIZEN);
+		citizenToken = AuthHelper.getAuthToken("user@Email.com", "user password");
 	}
-	
-	
+
+    @Test
+    public void testRegisterLoan_Success() throws IllegalAccessException, SQLException {
+        QueryUtils.queryCreateBook(connection, 1L, "Shelf 1", "Book 1", LocalDate.of(2020, 1, 1), "Publisher 1", "Fiction", "Description 1", ArticleState.AVAILABLE, "Author 1", "1234567890");
+
+        request = RestAssured.given();
+        request.header("Authorization", "Bearer " + adminToken);
+        request.header("Content-type", "application/json");
+        request.queryParam("userId", 2L);
+        request.queryParam("articleId", 1L);
+
+        response = executePost(request, "/");
+
+        response.then().statusCode(201).contentType("application/json");
+
+        body = response.getBody().asString();
+        responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+        assertTrue(responseBody.has("loanId"));
+    }
+
 	@Test
-	public void testRegisterLoan_WhenUserDoesNotExist_ThrowsUserDoesNotExistException() {
-		Article mockArticle = mock(Article.class);
-		when(userDaoMock.findById(1L)).thenReturn(null);
-		when(articleDaoMock.findById(1L)).thenReturn(mockArticle);
-		
-		Exception thrownException = assertThrows(UserDoesNotExistException.class, ()->{
-			loanController.registerLoan(1L, 1L);
-			
-		});
-		assertEquals("Cannot register Loan, specified User not present in the system!", thrownException.getMessage());			
+	public void testRegisterLoan_Unauthorized() {
+		request = RestAssured.given();
+		request.header("Authorization", "Bearer " + citizenToken);
+		request.header("Content-type", "application/json");
+		request.queryParam("userId", 1);
+		request.queryParam("articleId", 1);
+
+		response = executePost(request, "/");
+
+		response.then().statusCode(403);
 	}
-	
-	
+
+    @Test
+    public void testRegisterLoan_MissingUser() {
+        request = RestAssured.given();
+        request.header("Authorization", "Bearer " + adminToken);
+        request.header("Content-type", "application/json");
+        request.queryParam("articleId", 1L);
+
+        response = executePost(request, "/");
+
+        response.then().statusCode(400).contentType("application/json");
+
+        body = response.getBody().asString();
+        responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+        assertEquals("Cannot register Loan, User not specified!", responseBody.get("error").getAsString());
+    }
+
+    @Test
+    public void testRegisterLoan_MissingArticle() {
+        request = RestAssured.given();
+        request.header("Authorization", "Bearer " + adminToken);
+        request.header("Content-type", "application/json");
+        request.queryParam("userId", 2L);
+
+        response = executePost(request, "/");
+
+        response.then().statusCode(400).contentType("application/json");
+
+        body = response.getBody().asString();
+        responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+        assertEquals("Cannot register Loan, Article not specified!", responseBody.get("error").getAsString());
+    }
+
+    @Test
+    public void testRegisterLoan_UserNotFound() {
+        request = RestAssured.given();
+        request.header("Authorization", "Bearer " + adminToken);
+        request.header("Content-type", "application/json");
+        request.queryParam("userId", 9999L);
+        request.queryParam("articleId", 1L);
+
+        response = executePost(request, "/");
+
+        response.then().statusCode(404).contentType("application/json");
+
+        body = response.getBody().asString();
+        responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+        assertEquals("Cannot register Loan, specified User not present in the system!", responseBody.get("error").getAsString());
+    }
+
+    @Test
+    public void testRegisterLoan_ArticleNotFound() {
+        request = RestAssured.given();
+        request.header("Authorization", "Bearer " + adminToken);
+        request.header("Content-type", "application/json");
+        request.queryParam("userId", 2L);
+        request.queryParam("articleId", 9999L);
+
+        response = executePost(request, "/");
+
+        response.then().statusCode(404).contentType("application/json");
+
+        body = response.getBody().asString();
+        responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+        assertEquals("Cannot register Loan, specified Article not present in catalogue!", responseBody.get("error").getAsString());
+    }
+
+    @Test
+    public void testRegisterLoan_ArticleAlreadyOnLoan() throws IllegalAccessException, SQLException {
+        Book book = QueryUtils.queryCreateBook(connection, 2L, "Shelf 2", "Book 2", LocalDate.of(2020, 1, 2), "Publisher 2", "Non-Fiction", "Description 2", ArticleState.ONLOAN, "Author 2", "0987654321");
+        QueryUtils.queryCreateLoan(connection, 1L, LocalDate.now(), LocalDate.now().plusMonths(1), LoanState.ACTIVE, false, book, citizenUser);
+
+        request = RestAssured.given();
+        request.header("Authorization", "Bearer " + adminToken);
+        request.header("Content-type", "application/json");
+        request.queryParam("userId", 2L);
+        request.queryParam("articleId", 2L);
+
+        response = executePost(request, "/");
+
+        response.then().statusCode(400).contentType("application/json");
+
+        body = response.getBody().asString();
+        responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+        assertEquals("Cannot register Loan, specified Article is already on loan!", responseBody.get("error").getAsString());
+    }
+    
+    @Test
+    public void testRegisterReturn_Success() throws SQLException, IllegalAccessException {
+        Book book = QueryUtils.queryCreateBook(connection, 1L, "Shelf 1", "Book 1", LocalDate.now(), "Publisher 1", "Fiction", "Description 1", ArticleState.ONLOAN, "Author 1", "1234567890");
+        Loan loan = QueryUtils.queryCreateLoan(connection, 1L, LocalDate.now(), LocalDate.now().plusMonths(1), LoanState.ACTIVE, false, book, citizenUser);
+
+        request = RestAssured.given();
+        request.header("Authorization", "Bearer " + adminToken);
+        request.header("Content-type", "application/json");
+
+        response = executePatch(request, "/" + loan.getId() + "/return");
+
+        response.then().statusCode(200).contentType("application/json");
+
+        body = response.getBody().asString();
+        responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+        assertEquals("Loan successfully returned.", responseBody.get("message").getAsString());
+    }
+    
 	@Test
-	public void testRegisterLoan_WhenArticleDoesNotExist_ThrowsArticleDoesNotExistException() {
-		User mockUser = mock(User.class);
-		when(articleDaoMock.findById(1L)).thenReturn(null);
-		when(userDaoMock.findById(1L)).thenReturn(mockUser);
-		
-		Exception thrownException = assertThrows(ArticleDoesNotExistException.class, ()->{
-			loanController.registerLoan(1L, 1L);
-			
-		});
-		assertEquals("Cannot register Loan, specified Article not present in catalogue!", thrownException.getMessage());			
-	}
-	
-	
-	@Test
-	public void testRegisterLoan_WhenArticleBookedByAnotherUser_ThrowsInvalidOperationException() {
-	    User mockUser = mock(User.class);
-	    User mockOtherUser = mock(User.class);
-	    Article article = mock(Article.class);
-	    Booking booking = mock(Booking.class);
-	    booking.setBookingUser(mockOtherUser);
+	public void testRegisterReturn_Unauthorized() {
+		request = RestAssured.given();
+		request.header("Authorization", "Bearer " + citizenToken);
+		request.header("Content-type", "application/json");
+		request.queryParam("userId", 1);
+		request.queryParam("articleId", 1);
 
-	    when(userDaoMock.findById(1L)).thenReturn(mockUser);
-	    when(articleDaoMock.findById(1L)).thenReturn(article);
-	    when(article.getState()).thenReturn(ArticleState.BOOKED);
-	    when(bookingDaoMock.searchBookings(null, article, 0, 1)).thenReturn(List.of(booking));
+		response = executePost(request, "/");
 
-		Exception thrownException = assertThrows(InvalidOperationException.class, ()->{
-			loanController.registerLoan(1L, 1L);
-			
-		});
-		assertEquals("Cannot register Loan, specified Article is booked by another user!", thrownException.getMessage());			
+		response.then().statusCode(403);
 	}
 
-	
-	@ParameterizedTest
-	@EnumSource(value = ArticleState.class, names = {"ONLOAN", "ONLOANBOOKED", "UNAVAILABLE"})
-	public void testRegisterLoan_WhenArticleNotLendable_ThrowsInvalidOperationException(ArticleState state) {
-		User mockUser = mock(User.class);
-		when(userDaoMock.findById(anyLong())).thenReturn(mockUser);
-	    Article mockArticle = mock(Article.class);
-	    when(articleDaoMock.findById(anyLong())).thenReturn(mockArticle);
-	    when(mockArticle.getState()).thenReturn(state);
+    @Test
+    public void testRegisterReturn_LoanNotFound() {
+        request = RestAssured.given();
+        request.header("Authorization", "Bearer " + adminToken);
+        request.header("Content-type", "application/json");
 
-		Exception thrownException = assertThrows(InvalidOperationException.class, ()->{
-			loanController.registerLoan(1L, 1L);
-			
-		});
-		
-		if(state == ArticleState.UNAVAILABLE)
-			assertEquals("Cannot register Loan, specified Article is UNAVAILABLE!", thrownException.getMessage());
-		else
-			assertEquals("Cannot register Loan, specified Article is already on loan!", thrownException.getMessage());
-	}
-	
-	
-	@Test
-	public void testRegisterLoan_WhenSuccessfulRegistration() {
-	    User mockUser = mock(User.class);
-	    Article mockArticle = mock(Article.class);
-	    Booking mockBooking = mock(Booking.class);
+        response = executePatch(request, "/9999/return");
 
-	    when(userDaoMock.findById(1L)).thenReturn(mockUser);
-	    when(articleDaoMock.findById(1L)).thenReturn(mockArticle);
-	    when(mockBooking.getBookingUser()).thenReturn(mockUser);
-	    when(mockArticle.getState()).thenReturn(ArticleState.BOOKED);
-	    when(bookingDaoMock.searchBookings(null, mockArticle, 0, 1)).thenReturn(List.of(mockBooking));
+        response.then().statusCode(404).contentType("application/json");
 
-	    ArgumentCaptor<Loan> loanCaptor = ArgumentCaptor.forClass(Loan.class);
-	    
-	    Long returnedId = loanController.registerLoan(1L, 1L);
-	    
-	    verify(loanDaoMock).save(loanCaptor.capture());
-	    Loan capturedLoan = loanCaptor.getValue();
-	    
-	    verify(mockArticle).setState(ArticleState.ONLOAN);
-	    assertEquals(returnedId, capturedLoan.getId());
-	    assertEquals(mockUser, capturedLoan.getLoaningUser());
-	    assertEquals(mockArticle, capturedLoan.getArticleOnLoan());
-	    assertEquals(today, capturedLoan.getLoanDate());
-	    assertEquals(today.plusMonths(1), capturedLoan.getDueDate());
-	    assertFalse(capturedLoan.isRenewed());
-	    assertEquals(LoanState.ACTIVE, capturedLoan.getState());
-	    assertEquals(today.plusMonths(1), capturedLoan.getDueDate());
-	}
-	
-	
-	@Test
-	public void testRegisterReturn_WhenLoanNotFound_ThrowsLoanDoesNotExistException() {
-	    when(loanDaoMock.findById(1L)).thenReturn(null);
+        body = response.getBody().asString();
+        responseBody = JsonParser.parseString(body).getAsJsonObject();
 
-		Exception thrownException = assertThrows(LoanDoesNotExistException.class, ()->{
-			loanController.registerReturn(1L);
-			
-		});
-		assertEquals("Cannot return article! Loan not registered!", thrownException.getMessage());			
-	}
-	
-	
-	@Test
-	public void testRegisterReturn_WhenLoanAlreadyReturned_ThrowsInvalidOperationEsception() {
-		Loan mockLoan = mock(Loan.class);
-		when(mockLoan.getState()).thenReturn(LoanState.RETURNED);
-		when(loanDaoMock.findById(1L)).thenReturn(mockLoan);
-		
-		Exception thrownException = assertThrows(InvalidOperationException.class, ()->{
-			loanController.registerReturn(1L);
-			
-		});
-		assertEquals("Cannot return article! Loan has already been returned!", thrownException.getMessage());			
-	}
-	
-	
-	@ParameterizedTest
-	@EnumSource(value = ArticleState.class, names = {"ONLOAN", "UNAVAILABLE"})
-	public void testRegisterReturn_WhenArticleOnloanOrUnavailalbe_ThenReturnsSuccessfully(ArticleState state) {
-	    Loan mockLoan = mock(Loan.class);
-	    Article mockArticle = mock(Article.class);
+        assertEquals("Cannot return article! Loan not registered!", responseBody.get("error").getAsString());
+    }
 
-	    when(loanDaoMock.findById(1L)).thenReturn(mockLoan);
-	    when(mockLoan.getState()).thenReturn(LoanState.ACTIVE);
-	    when(mockLoan.getArticleOnLoan()).thenReturn(mockArticle);
-	    when(mockArticle.getState()).thenReturn(state);
+    @Test
+    public void testRegisterReturn_AlreadyReturned() throws SQLException, IllegalAccessException {
+        Book book = QueryUtils.queryCreateBook(connection, 2L, "Shelf 2", "Book 2", LocalDate.of(2020, 1, 2), "Publisher 2", "Non-Fiction", "Description 2", ArticleState.AVAILABLE, "Author 2", "0987654321");
+        Loan loan = QueryUtils.queryCreateLoan(connection, 2L, LocalDate.now(), LocalDate.now().plusMonths(1), LoanState.RETURNED, false, book, citizenUser);
 
-	    loanController.registerReturn(1L);
+        request = RestAssured.given();
+        request.header("Authorization", "Bearer " + adminToken);
+        request.header("Content-type", "application/json");
 
-	    verify(mockArticle).setState(ArticleState.AVAILABLE);
-	    verify(mockLoan).setState(LoanState.RETURNED);
-	}
-	
-	
-	@Test
-	public void testRegisterReturn_WhenArticleOnLoanBooked_ThenUpdatesBooking() {
-	    Long loanId = 4L;
-	    Loan mockLoan = mock(Loan.class);
-	    Article mockArticle = mock(Article.class);
-	    Booking mockBooking = mock(Booking.class);
+        response = executePatch(request, "/" + loan.getId() + "/return");
 
-	    when(loanDaoMock.findById(loanId)).thenReturn(mockLoan);
-	    when(mockLoan.getState()).thenReturn(LoanState.ACTIVE);
-	    when(mockLoan.getArticleOnLoan()).thenReturn(mockArticle);
-	    when(mockArticle.getState()).thenReturn(ArticleState.ONLOANBOOKED);
-	    when(bookingDaoMock.searchBookings(null, mockArticle, 0, 1)).thenReturn(List.of(mockBooking));
+        response.then().statusCode(400).contentType("application/json");
 
-	    loanController.registerReturn(loanId);
+        body = response.getBody().asString();
+        responseBody = JsonParser.parseString(body).getAsJsonObject();
 
-	    verify(mockArticle).setState(ArticleState.BOOKED);
-	    verify(mockBooking).setBookingEndDate(today.plusDays(3));
-	    verify(mockLoan).setState(LoanState.RETURNED);
-	}
-	
-	
-	@Test
-	public void testGetLoanInfo_WhenLoanDoesNotExist_ThrowsLoanDoesNotExistException() {
-		when(loanDaoMock.findById(1L)).thenReturn(null);
-		
-		Exception thrownException = assertThrows(LoanDoesNotExistException.class, ()->{
-			loanController.getLoanInfo(1L);
-			
-		});
-		assertEquals("Specified Loan not registered in the system!", thrownException.getMessage());			
+        assertEquals("Cannot return article! Loan has already been returned!", responseBody.get("error").getAsString());
+    }
+    
+    @Test
+    public void testGetLoanInfo_Success() throws SQLException, IllegalAccessException {
+        Book book = QueryUtils.queryCreateBook(connection, 1L, "Shelf 1", "Book 1", LocalDate.of(2020, 1, 1), "Publisher 1", "Fiction", "Description 1", ArticleState.AVAILABLE, "Author 1", "1234567890");
+        Loan loan = QueryUtils.queryCreateLoan(connection, 1L, LocalDate.now(), LocalDate.now().plusMonths(1), LoanState.ACTIVE, false, book, citizenUser);
 
-	}
-	
-	
-	@ParameterizedTest
-	@EnumSource(value = LoanState.class, names = {"RETURNED", "OVERDUE"})
-	public void testGetLoanInfo_WhenLoanNotActive_DoesNotCallValidateState(LoanState state) {
-	    Loan mockLoan = mock(Loan.class);
-    	Article mockArticle = mock(Article.class);
-    	User mockUser = mock(User.class);
+        request = RestAssured.given();
+        request.header("Authorization", "Bearer " + adminToken);
+        request.header("Content-type", "application/json");
 
-    	when(mockArticle.getId()).thenReturn(3L);
-    	when(mockUser.getId()).thenReturn(5L);
+        response = executeGet(request, "/" + loan.getId());
 
-    	when(mockLoan.getArticleOnLoan()).thenReturn(mockArticle);
-    	when(mockLoan.getLoaningUser()).thenReturn(mockUser);
+        response.then().statusCode(200).contentType("application/json");
 
-	    when(mockLoan.getState()).thenReturn(state);
-	    when(loanDaoMock.findById(1L)).thenReturn(mockLoan);
+        body = response.getBody().asString();
+        responseBody = JsonParser.parseString(body).getAsJsonObject();
 
-	    loanController.getLoanInfo(1L);
-	    
-	    verify(mockLoan, never()).validateState();
-	}
-	
-	
-	@Test
-	public void testGetLoanInfo_WhenLoanActive_ThenCallsValidateState() {
-		Loan mockLoan = mock(Loan.class);
-    	Article mockArticle = mock(Article.class);
-    	User mockUser = mock(User.class);
+        assertEquals(loan.getId().longValue(), responseBody.get("id").getAsLong());
+        assertEquals(loan.getArticleOnLoan().getId().longValue(), responseBody.get("articleId").getAsLong());
+        assertEquals(loan.getArticleOnLoan().getTitle(), responseBody.get("articleTitle").getAsString());
+        assertEquals(loan.getLoaningUser().getId().longValue(), responseBody.get("loaningUserId").getAsLong());
+        assertEquals(loan.isRenewed(), responseBody.get("renewed").getAsBoolean());
+        assertEquals(loan.getState().toString(), responseBody.get("state").getAsString());
 
-    	when(mockArticle.getId()).thenReturn(3L);
-    	when(mockUser.getId()).thenReturn(5L);
+		JsonArray loanDateArray = responseBody.get("loanDate").getAsJsonArray();
+		LocalDate loanDateResponse = LocalDate.of(loanDateArray.get(0).getAsInt(),
+				loanDateArray.get(1).getAsInt(), loanDateArray.get(2).getAsInt());
 
-    	when(mockLoan.getArticleOnLoan()).thenReturn(mockArticle);
-    	when(mockLoan.getLoaningUser()).thenReturn(mockUser);
+		assertEquals(loan.getLoanDate(), loanDateResponse);
 
-		when(mockLoan.getState()).thenReturn(LoanState.ACTIVE);
-		when(loanDaoMock.findById(1L)).thenReturn(mockLoan);
+		JsonArray loanDueDateArray = responseBody.get("dueDate").getAsJsonArray();
+		LocalDate loanDueDateResponse = LocalDate.of(loanDueDateArray.get(0).getAsInt(),
+				loanDueDateArray.get(1).getAsInt(), loanDueDateArray.get(2).getAsInt());
 
-		loanController.getLoanInfo(1L);
-		
-		verify(mockLoan).validateState();		
-	}
-	
-	
-	@Test
-	public void testGetLoanInfo_ReturnsCorrectDTO() {
-		Loan mockLoan = mock(Loan.class);
-    	Article mockArticle = mock(Article.class);
-    	User mockUser = mock(User.class);
-		
-    	when(mockArticle.getId()).thenReturn(3L);
-    	when(mockArticle.getTitle()).thenReturn("a title");
-    	
-    	when(mockUser.getId()).thenReturn(5L);
+		assertEquals(loan.getDueDate(), loanDueDateResponse);
+    }
 
-    	when(mockLoan.getId()).thenReturn(1L);
-    	when(mockLoan.getState()).thenReturn(LoanState.ACTIVE);
-    	when(mockLoan.getArticleOnLoan()).thenReturn(mockArticle);
-    	when(mockLoan.getLoaningUser()).thenReturn(mockUser);
-    	when(mockLoan.getLoanDate()).thenReturn(today);
-    	when(mockLoan.getDueDate()).thenReturn(today.plusMonths(1));
-    	when(mockLoan.isRenewed()).thenReturn(true);
-    	when(loanDaoMock.findById(1L)).thenReturn(mockLoan);
+    @Test
+    public void testGetLoanInfo_LoanNotFound() {
+        request = RestAssured.given();
+        request.header("Authorization", "Bearer " + adminToken);
+        request.header("Content-type", "application/json");
 
-    	LoanDTO loanDTO = loanController.getLoanInfo(1L);
-    	
-    	assertNotNull(loanDTO);
-    	assertEquals(loanDTO.getId(), mockLoan.getId());
-    	assertEquals(loanDTO.getState(), mockLoan.getState());
-    	assertEquals(loanDTO.getArticleId(), mockLoan.getArticleOnLoan().getId());
-    	assertEquals(loanDTO.getArticleTitle(), mockLoan.getArticleOnLoan().getTitle());
-    	assertEquals(loanDTO.getLoaningUserId(), mockLoan.getLoaningUser().getId());
-    	assertEquals(loanDTO.getLoanDate(), mockLoan.getLoanDate());
-    	assertEquals(loanDTO.getDueDate(), mockLoan.getDueDate());
-    	assertEquals(loanDTO.isRenewed(), mockLoan.isRenewed());
-	}
-	
-	@Test
-	public void testGetLoansByUser_WhenUserDoesNotExist_ThrowsUserDoesNotExistException() {
-		when(userDaoMock.findById(1L)).thenReturn(null);
-		
-		Exception thrownException = assertThrows(UserDoesNotExistException.class, ()->{
-			loanController.getLoansByUser(1L, 0, 0);
-			
-		});
-		assertEquals("Specified user is not registered in the system!", thrownException.getMessage());					
-	}
-	
-	
-	@Test
-	public void testGetLoansByUser_WhenUserHasNoLoans_ThrowsLoanDoesNotExistException() {
-		User mockUser = mock(User.class);
-		when(userDaoMock.findById(1L)).thenReturn(mockUser);
-		when(loanDaoMock.searchLoans(mockUser, null, 0, 0)).thenReturn(Collections.emptyList());
-		
-		Exception thrownException = assertThrows(LoanDoesNotExistException.class, ()->{
-			loanController.getLoansByUser(1L, 0, 0);
-			
-		});
-		assertEquals("No loans relative to the specified user found!", thrownException.getMessage());					
-	}
-	
-	
-	@Test
-	public void testGetLoansByUser_WhenUserHasLoans_ValidatesOnlyActiveLoans() {
-	    User mockUser = mock(User.class);
-	    Loan activeLoan = mock(Loan.class);
-	    Loan overdueLoan = mock(Loan.class);
-	    Loan returnedLoan = mock(Loan.class);
+        response = executeGet(request, "/9999");
 
-	    when(userDaoMock.findById(1L)).thenReturn(mockUser);
-	    when(loanDaoMock.searchLoans(mockUser, null, 0, 0)).thenReturn(List.of(activeLoan, overdueLoan, returnedLoan));
-	    when(activeLoan.getState()).thenReturn(LoanState.ACTIVE);
-	    when(overdueLoan.getState()).thenReturn(LoanState.OVERDUE);
-	    when(returnedLoan.getState()).thenReturn(LoanState.RETURNED);
+        response.then().statusCode(404).contentType("application/json");
 
-	    List<Loan> returnedLoans = loanController.getLoansByUser(1L, 0, 0);
+        body = response.getBody().asString();
+        responseBody = JsonParser.parseString(body).getAsJsonObject();
 
-	    assertNotNull(returnedLoans);
-	    assertEquals(3, returnedLoans.size());  
-	    verify(activeLoan).validateState();  
-	    verify(overdueLoan, never()).validateState();  
-	    verify(returnedLoan, never()).validateState(); 
-	}
-	
-	
-	@Test
-	public void testExtendLoan_WhenLoanDoesNotExist_ThrowsLoanDoesNotExistException() {
-		when(loanDaoMock.findById(1L)).thenReturn(null);
+        assertEquals("Specified Loan not registered in the system!", responseBody.get("error").getAsString());
+    }
+    
+    @Test
+    public void testGetLoansByUser_Success() throws IllegalAccessException, SQLException {
+        Book book1 = QueryUtils.queryCreateBook(connection, 1L, "Shelf 1", "Book 1", LocalDate.of(2020, 1, 1), "Publisher 1", "Fiction", "Description 1", ArticleState.AVAILABLE, "Author 1", "1234567890");
+        Loan loan = QueryUtils.queryCreateLoan(connection, 1L, LocalDate.now(), LocalDate.now().plusMonths(1), LoanState.ACTIVE, false, book1, citizenUser);
+        
+        request = RestAssured.given();
+        request.header("Authorization", "Bearer " + citizenToken);
+        request.header("Content-type", "application/json");
+        request.pathParam("userId", citizenUser.getId());
 
-		Exception thrownException = assertThrows(LoanDoesNotExistException.class, ()->{
-			loanController.extendLoan(1L);
-			
-		});
-		assertEquals("Cannot extend Loan! Loan does not exist!", thrownException.getMessage());					
-	}
+        response = executeGet(request, "/{userId}/loans");
 
-	@ParameterizedTest
-	@EnumSource(value = LoanState.class, names = {"RETURNED", "OVERDUE"})
-	public void testExtendLoan_WhenLoanExistsButNotActive_ThrowsInvalidOperationException(LoanState state) {
-		Loan mockLoanToExtend = mock(Loan.class);
-		
-		when(loanDaoMock.findById(1L)).thenReturn(mockLoanToExtend);
-		when(mockLoanToExtend.getState()).thenReturn(state);
-		
-		Exception thrownException = assertThrows(InvalidOperationException.class, ()->{
-			loanController.extendLoan(1L);
-			
-		});
-		assertEquals("Cannot extend loan, selected loan is not Active!", thrownException.getMessage());					
-	}
-	
-	@Test
-	public void testExtendLoan_WhenLoanExistsButBookedByAnotherUser_ThrowsInvalidOperationException() {
-		Loan mockLoanToExtend = mock(Loan.class);
-		Article mockArticle = mock(Article.class);
-		
-		when(loanDaoMock.findById(1L)).thenReturn(mockLoanToExtend);
-		when(mockLoanToExtend.getState()).thenReturn(LoanState.ACTIVE);
-		when(mockLoanToExtend.getArticleOnLoan()).thenReturn(mockArticle);
-		when(mockArticle.getState()).thenReturn(ArticleState.ONLOANBOOKED);
-		
-		Exception thrownException = assertThrows(InvalidOperationException.class, ()->{
-			loanController.extendLoan(1L);
-			
-		});
-		assertEquals("Cannot extend loan, another User has booked the Article!", thrownException.getMessage());					
-	}
-	
-	@Test
-	public void testExtendLoan_WhenLoanAlreadyRenewed_ThrowsInvalidOperationException() {
-		Loan mockLoanToExtend = mock(Loan.class);
-		Article mockArticle = mock(Article.class);
-		
-		when(loanDaoMock.findById(1L)).thenReturn(mockLoanToExtend);
-		when(mockLoanToExtend.getArticleOnLoan()).thenReturn(mockArticle);
-		when(mockLoanToExtend.isRenewed()).thenReturn(true);
-		when(mockLoanToExtend.getState()).thenReturn(LoanState.ACTIVE);
-		when(mockArticle.getState()).thenReturn(ArticleState.ONLOAN);
-		
-		Exception thrownException = assertThrows(InvalidOperationException.class, ()->{
-			loanController.extendLoan(1L);
-			
-		});
-		assertEquals("Cannot extend loan, loan has already been renewed!", thrownException.getMessage());					
-	}
+        response.then().statusCode(200).contentType("application/json");
 
-	
-	@Test
-	public void testExtendLoan_WhenLoanExistsAndNotBookedByAnotherUser_UpdatesDueDateAndSetsRenewedToTrue() {
-		Loan mockLoanToExtend = mock(Loan.class);
-		Article mockArticle = mock(Article.class);
-		
-		when(loanDaoMock.findById(1L)).thenReturn(mockLoanToExtend);
-		when(mockLoanToExtend.getArticleOnLoan()).thenReturn(mockArticle);
-		when(mockLoanToExtend.getState()).thenReturn(LoanState.ACTIVE);
-		when(mockArticle.getState()).thenReturn(ArticleState.ONLOAN);
-		
-		loanController.extendLoan(1L);
-		
-		verify(mockLoanToExtend).setDueDate(today.plusMonths(1));
-		verify(mockLoanToExtend).setRenewed(true);
-	}
-	
-	@Test
-	public void testCountLoansByUser_WhenUserDoesNotExist_ThrowsUserDoesNotExistException() {
-		when(userDaoMock.findById(1L)).thenReturn(null);
-		
-		Exception thrownException = assertThrows(UserDoesNotExistException.class, ()->{
-			loanController.countLoansByUser(1L);
-			
-		});
-		assertEquals("Specified user is not registered in the system!", thrownException.getMessage());					
-	}
-	
-	@Test
-	public void testCountLoansByUser_WhenUserExists() {
-		User mockUser = mock(User.class);
-		
-		when(userDaoMock.findById(1L)).thenReturn(mockUser);
-		
-		loanController.countLoansByUser(1L);
-		
-		verify(loanDaoMock).countLoans(mockUser, null);
-	}
+        body = response.getBody().asString();
+        responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+        assertTrue(responseBody.has("items"));
+        JsonArray itemsArray = responseBody.get("items").getAsJsonArray();
+        assertEquals(1, itemsArray.size());
+
+        JsonObject loanObject = itemsArray.get(0).getAsJsonObject();
+        assertEquals(loan.getId(), loanObject.get("id").getAsLong());
+        assertEquals(loan.getArticleOnLoan().getId(), loanObject.get("articleId").getAsLong());
+        assertEquals(loan.getArticleOnLoan().getTitle(), loanObject.get("articleTitle").getAsString());
+        assertEquals(loan.getLoaningUser().getId(), loanObject.get("loaningUserId").getAsLong());
+        assertEquals(loan.getState().toString(), loanObject.get("state").getAsString());
+        assertEquals(loan.isRenewed(), loanObject.get("renewed").getAsBoolean());
+
+    
+		JsonArray loanDateArray = loanObject.get("loanDate").getAsJsonArray();
+		LocalDate loanDateResponse = LocalDate.of(loanDateArray.get(0).getAsInt(),
+				loanDateArray.get(1).getAsInt(), loanDateArray.get(2).getAsInt());
+
+		assertEquals(loan.getLoanDate(), loanDateResponse);
+
+		JsonArray loanDueDateArray = loanObject.get("dueDate").getAsJsonArray();
+		LocalDate loanDueDateResponse = LocalDate.of(loanDueDateArray.get(0).getAsInt(),
+				loanDueDateArray.get(1).getAsInt(), loanDueDateArray.get(2).getAsInt());
+
+		assertEquals(loan.getDueDate(), loanDueDateResponse);
+    }
+
+    @Test
+    public void testGetLoansByUser_InvalidPagination() {
+        request = RestAssured.given();
+        request.header("Authorization", "Bearer " + citizenToken);
+        request.header("Content-type", "application/json");
+        request.pathParam("userId", citizenUser.getId());
+        request.queryParam("pageNumber", 0); // Invalid page number
+
+        response = executeGet(request, "/{userId}/loans");
+
+        response.then().statusCode(400).contentType("application/json");
+
+        body = response.getBody().asString();
+        responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+        assertEquals("Pagination parameters incorrect!", responseBody.get("error").getAsString());
+    }
+
+    @Test
+    public void testGetLoansByUser_Unauthorized() throws IllegalAccessException, SQLException {
+        QueryUtils.queryCreateUser(connection, 3L, "another@Email.com", "another password", "anotherName", "anotherSurname", "anotherAddress", "1234323", UserRole.CITIZEN);
+        String anotherToken = AuthHelper.getAuthToken("another@Email.com", "another password");
+
+        request = RestAssured.given();
+        request.header("Authorization", "Bearer " + anotherToken);
+        request.header("Content-type", "application/json");
+        request.pathParam("userId", citizenUser.getId());
+
+        response = executeGet(request, "/{userId}/loans");
+
+        response.then().statusCode(401);
+    }
+
+    @Test
+    public void testGetLoansByUser_UserNotFound() {
+        request = RestAssured.given();
+        request.header("Authorization", "Bearer " + adminToken);
+        request.header("Content-type", "application/json");
+        request.pathParam("userId", 9999L);
+
+        response = executeGet(request, "/{userId}/loans");
+
+        response.then().statusCode(404).contentType("application/json");
+
+        body = response.getBody().asString();
+        responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+        assertEquals("Specified user is not registered in the system!", responseBody.get("error").getAsString());
+    }
+
+    @Test
+    public void testGetLoansByUser_LoansNotFound() throws SQLException, IllegalAccessException {
+        User newUser = QueryUtils.queryCreateUser(connection, 4L, "new@Email.com", "new password", "newName", "newSurname", "newAddress", "1234324", UserRole.CITIZEN);
+        String newToken = AuthHelper.getAuthToken("new@Email.com", "new password");
+
+        request = RestAssured.given();
+        request.header("Authorization", "Bearer " + newToken);
+        request.header("Content-type", "application/json");
+        request.pathParam("userId", newUser.getId());
+
+        response = executeGet(request, "/{userId}/loans");
+
+        response.then().statusCode(404).contentType("application/json");
+
+        body = response.getBody().asString();
+        responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+        assertEquals("No loans relative to the specified user found!", responseBody.get("error").getAsString());
+    }
+    
+    @Test
+    public void testGetLoansByUser_MultipleResults() throws IllegalAccessException, SQLException {
+        Book book1 = QueryUtils.queryCreateBook(connection, 1L, "Shelf 1", "Book 1", LocalDate.now(), "Publisher 1", "Fiction", "Description 1", ArticleState.AVAILABLE, "Author 1", "1234567890");
+        Book book2 = QueryUtils.queryCreateBook(connection, 2L, "Shelf 2", "Book 2", LocalDate.now(), "Publisher 2", "Non-Fiction", "Description 2", ArticleState.AVAILABLE, "Author 2", "0987654321");
+        Book book3 = QueryUtils.queryCreateBook(connection, 3L, "Shelf 3", "Book 3", LocalDate.now(), "Publisher 3", "Science", "Description 3", ArticleState.AVAILABLE, "Author 3", "1122334455");
+
+        QueryUtils.queryCreateLoan(connection, 1L, LocalDate.now(), LocalDate.now().plusMonths(1), LoanState.ACTIVE, false, book1, citizenUser);
+        QueryUtils.queryCreateLoan(connection, 2L, LocalDate.now(), LocalDate.now().plusMonths(1), LoanState.ACTIVE, false, book2, citizenUser);
+        QueryUtils.queryCreateLoan(connection, 3L, LocalDate.now(), LocalDate.now().plusMonths(1), LoanState.ACTIVE, false, book3, citizenUser);
+        
+        request = RestAssured.given();
+        request.header("Authorization", "Bearer " + citizenToken);
+        request.header("Content-type", "application/json");
+        request.pathParam("userId", citizenUser.getId());
+        request.queryParam("pageNumber", 1);
+        request.queryParam("resultsPerPage", 2);
+
+        response = executeGet(request, "/{userId}/loans");
+
+        response.then().statusCode(200).contentType("application/json");
+
+        body = response.getBody().asString();
+        responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+        assertTrue(responseBody.has("items"));
+        JsonArray itemsArray = responseBody.get("items").getAsJsonArray();
+        assertEquals(2, itemsArray.size());
+
+        assertEquals(1, responseBody.get("pageNumber").getAsInt());
+        assertEquals(2, responseBody.get("resultsPerPage").getAsInt());
+        assertEquals(3, responseBody.get("totalResults").getAsInt());
+        assertEquals(2, responseBody.get("totalPages").getAsInt());
+    }
+
+    @Test
+    public void testGetLoansByUser_Pagination() throws IllegalAccessException, SQLException {
+        Book book1 = QueryUtils.queryCreateBook(connection, 1L, "Shelf 1", "Book 1", LocalDate.now(), "Publisher 1", "Fiction", "Description 1", ArticleState.AVAILABLE, "Author 1", "1234567890");
+        Book book2 = QueryUtils.queryCreateBook(connection, 2L, "Shelf 2", "Book 2", LocalDate.now(), "Publisher 2", "Non-Fiction", "Description 2", ArticleState.AVAILABLE, "Author 2", "0987654321");
+        Book book3 = QueryUtils.queryCreateBook(connection, 3L, "Shelf 3", "Book 3", LocalDate.now(), "Publisher 3", "Science", "Description 3", ArticleState.AVAILABLE, "Author 3", "1122334455");
+        Book book4 = QueryUtils.queryCreateBook(connection, 4L, "Shelf 4", "Book 4", LocalDate.now(), "Publisher 4", "Science", "Description 4", ArticleState.AVAILABLE, "Author 4", "1122334455");
+
+        Loan loan1 = QueryUtils.queryCreateLoan(connection, 1L, LocalDate.now().plusDays(1), LocalDate.now().plusMonths(1).plusDays(1), LoanState.ACTIVE, false, book1, citizenUser);
+        Loan loan2 = QueryUtils.queryCreateLoan(connection, 2L, LocalDate.now().plusDays(2), LocalDate.now().plusMonths(1).plusDays(2), LoanState.ACTIVE, false, book2, citizenUser);
+        QueryUtils.queryCreateLoan(connection, 3L, LocalDate.now().plusDays(3), LocalDate.now().plusMonths(1).plusDays(3), LoanState.ACTIVE, false, book3, citizenUser);
+        QueryUtils.queryCreateLoan(connection, 4L, LocalDate.now().plusDays(4), LocalDate.now().plusMonths(1).plusDays(4), LoanState.ACTIVE, false, book4, citizenUser);
+
+        request = RestAssured.given();
+        request.header("Authorization", "Bearer " + citizenToken);
+        request.header("Content-type", "application/json");
+        request.pathParam("userId", citizenUser.getId());
+        request.queryParam("pageNumber", 2);
+        request.queryParam("resultsPerPage", 2);
+
+        response = executeGet(request, "/{userId}/loans");
+
+        response.then().statusCode(200).contentType("application/json");
+
+        body = response.getBody().asString();
+        responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+        assertTrue(responseBody.has("items"));
+        JsonArray itemsArray = responseBody.get("items").getAsJsonArray();
+        assertEquals(2, itemsArray.size());
+
+        JsonObject loanObject = itemsArray.get(0).getAsJsonObject();
+        assertEquals(loan2.getId(), loanObject.get("id").getAsLong());
+
+        loanObject = itemsArray.get(1).getAsJsonObject();
+        assertEquals(loan1.getId(), loanObject.get("id").getAsLong());
+
+        assertEquals(2, responseBody.get("pageNumber").getAsInt());
+        assertEquals(2, responseBody.get("resultsPerPage").getAsInt());
+        assertEquals(4, responseBody.get("totalResults").getAsInt());
+        assertEquals(2, responseBody.get("totalPages").getAsInt());
+    }
+    
+    @Test
+    public void testExtendLoan_Success() throws IllegalAccessException, SQLException {
+        Book book1 = QueryUtils.queryCreateBook(connection, 1L, "Shelf 1", "Book 1", LocalDate.of(2020, 1, 1), "Publisher 1", "Fiction", "Description 1", ArticleState.ONLOAN, "Author 1", "1234567890");
+        QueryUtils.queryCreateLoan(connection, 1L, LocalDate.now(), LocalDate.now().plusMonths(1), LoanState.ACTIVE, false, book1, citizenUser);
+        
+        request = RestAssured.given();
+        request.header("Authorization", "Bearer " + citizenToken);
+        request.header("Content-type", "application/json");
+        request.pathParam("loanId", 1L);
+
+        response = executePatch(request, "/{loanId}/extend");
+
+        response.then().statusCode(200).contentType("application/json");
+
+        body = response.getBody().asString();
+        responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+        assertEquals("Loan extended successfully.", responseBody.get("message").getAsString());
+    }
+
+    @Test
+    public void testExtendLoan_Unauthorized() throws IllegalAccessException, SQLException {
+        Book book1 = QueryUtils.queryCreateBook(connection, 1L, "Shelf 1", "Book 1", LocalDate.of(2020, 1, 1), "Publisher 1", "Fiction", "Description 1", ArticleState.ONLOAN, "Author 1", "1234567890");
+        QueryUtils.queryCreateLoan(connection, 1L, LocalDate.now(), LocalDate.now().plusMonths(1), LoanState.ACTIVE, false, book1, citizenUser);
+
+    	QueryUtils.queryCreateUser(connection, 3L, "another@Email.com", "another password", "anotherName", "anotherSurname", "anotherAddress", "1234323", UserRole.CITIZEN);
+        String anotherToken = AuthHelper.getAuthToken("another@Email.com", "another password");
+
+        request = RestAssured.given();
+        request.header("Authorization", "Bearer " + anotherToken);
+        request.header("Content-type", "application/json");
+        request.pathParam("loanId", 1L);
+
+        response = executePatch(request, "/{loanId}/extend");
+
+        response.then().statusCode(401);
+    }
+
+    @Test
+    public void testExtendLoan_LoanNotFound() {
+        request = RestAssured.given();
+        request.header("Authorization", "Bearer " + adminToken);
+        request.header("Content-type", "application/json");
+        request.pathParam("loanId", 9999L);
+
+        response = executePatch(request, "/{loanId}/extend");
+
+        response.then().statusCode(404).contentType("application/json");
+
+        body = response.getBody().asString();
+        responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+        assertEquals("Specified Loan not registered in the system!", responseBody.get("error").getAsString());
+    }
+
+    @Test
+    public void testExtendLoan_InvalidOperation() throws IllegalAccessException, SQLException {
+        Book book2 = QueryUtils.queryCreateBook(connection, 2L, "Shelf 2", "Book 2", LocalDate.of(2020, 1, 2), "Publisher 2", "Non-Fiction", "Description 2", ArticleState.ONLOANBOOKED, "Author 2", "0987654321");
+        QueryUtils.queryCreateLoan(connection, 2L, LocalDate.now(), LocalDate.now().plusMonths(1), LoanState.ACTIVE, false, book2, citizenUser);
+
+        request = RestAssured.given();
+        request.header("Authorization", "Bearer " + citizenToken);
+        request.header("Content-type", "application/json");
+        request.pathParam("loanId", 2L);
+
+        response = executePatch(request, "/{loanId}/extend");
+
+        response.then().statusCode(400).contentType("application/json");
+
+        body = response.getBody().asString();
+        responseBody = JsonParser.parseString(body).getAsJsonObject();
+
+        assertEquals("Cannot extend loan, another User has booked the Article!", responseBody.get("error").getAsString());
+    }
 }

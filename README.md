@@ -60,9 +60,9 @@ You can modify these credentials by changing the values in the `InitDatabase` cl
 ### Building and Running the Application
 
 1. Build the application using Maven:
-   \`\`\`bash
+   ```bash
    mvn clean install
-   \`\`\`
+   ```
 
 2. Deploy the generated WAR file (`target/ilib.war`) to the WildFly server.
 

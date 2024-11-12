@@ -29,11 +29,12 @@ import it.gurzu.swam.iLib.model.Loan;
 import it.gurzu.swam.iLib.model.Magazine;
 import it.gurzu.swam.iLib.model.MovieDVD;
 import it.gurzu.swam.iLib.model.ArticleState;
+import jakarta.enterprise.context.RequestScoped;
 import jakarta.enterprise.inject.Model;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
-@Model
+@RequestScoped
 @Transactional
 public class ArticleService {
 

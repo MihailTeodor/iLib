@@ -60,9 +60,9 @@ You can modify these credentials by changing the values in the `InitDatabase` cl
 ### Building and Running the Application
 
 1. Build the application using Maven:
-   \`\`\`bash
+   ```bash
    mvn clean install
-   \`\`\`
+   ```
 
 2. Deploy the generated WAR file (`target/ilib.war`) to the WildFly server.
 
@@ -70,4 +70,4 @@ You can modify these credentials by changing the values in the `InitDatabase` cl
 
 ### Tests
 
-End-to-end tests connect to the `iLib_test` schema. Ensure that the test schema is correctly set up before running the tests.
+End-to-end tests connect to the `iLib_test` schema. To run end-to-end tests with the test db you need to modify the target DS in the `iLib/src/main/reources/META-INF/persistence.xml` file to `iLibTestDS` to avoid overriding data.

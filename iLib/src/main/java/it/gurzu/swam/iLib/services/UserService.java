@@ -17,7 +17,6 @@ import it.gurzu.swam.iLib.model.User;
 import it.gurzu.swam.iLib.model.UserRole;
 import it.gurzu.swam.iLib.utils.PasswordUtils;
 import jakarta.enterprise.context.RequestScoped;
-import jakarta.enterprise.inject.Model;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 

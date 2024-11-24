@@ -22,15 +22,14 @@ import it.gurzu.swam.iLib.exceptions.InvalidOperationException;
 import it.gurzu.swam.iLib.exceptions.InvalidStateTransitionException;
 import it.gurzu.swam.iLib.exceptions.SearchHasGivenNoResultsException;
 import it.gurzu.swam.iLib.model.Article;
+import it.gurzu.swam.iLib.model.ArticleState;
 import it.gurzu.swam.iLib.model.Book;
 import it.gurzu.swam.iLib.model.Booking;
 import it.gurzu.swam.iLib.model.BookingState;
 import it.gurzu.swam.iLib.model.Loan;
 import it.gurzu.swam.iLib.model.Magazine;
 import it.gurzu.swam.iLib.model.MovieDVD;
-import it.gurzu.swam.iLib.model.ArticleState;
 import jakarta.enterprise.context.RequestScoped;
-import jakarta.enterprise.inject.Model;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 

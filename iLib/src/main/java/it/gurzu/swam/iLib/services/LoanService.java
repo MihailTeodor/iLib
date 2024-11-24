@@ -21,7 +21,6 @@ import it.gurzu.swam.iLib.model.LoanState;
 import it.gurzu.swam.iLib.model.ModelFactory;
 import it.gurzu.swam.iLib.model.User;
 import jakarta.enterprise.context.RequestScoped;
-import jakarta.enterprise.inject.Model;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.transaction.Transactional.TxType;
